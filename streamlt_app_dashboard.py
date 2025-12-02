@@ -331,8 +331,8 @@ def build_mendoza_p2p_map_manual() -> folium.Map:
     - 3 switches de campo (Plaza Independencia, Parque Central, Terminal)
       todos a menos de ~1 km del CORE.
 
-    Los enlaces FO se dibujan como polilíneas con varios puntos intermedios
-    para simular ir “por las calles”.
+    Los enlaces FO se dibujan como polilíneas en “L” (tipo calles),
+    sin diagonales que corten manzanas.
     """
 
     # Coordenadas aproximadas del centro de Mendoza
@@ -425,52 +425,64 @@ def build_mendoza_p2p_map_manual() -> folium.Map:
         tooltip="FO CORE → Sw 8P",
     ).add_to(m)
 
-    # Helper para hacer rutas tipo “por calles” con varios puntos
-    def add_manual_route(map_obj, coords, tooltip: str):
-        folium.PolyLine(
-            locations=coords,
-            color="black",
-            weight=3,
-            tooltip=tooltip,
-        ).add_to(map_obj)
+    # Helper para ruta “Manhattan” (sin diagonales)
+    def manhattan_path(lat0, lon0, lat1, lon1, mode="lat_first"):
+        """
+        Genera una lista de puntos:
+        - mode='lat_first': cambia latitud primero, luego longitud
+        - mode='lon_first': cambia longitud primero, luego latitud
+        """
+        if mode == "lat_first":
+            return [
+                [lat0, lon0],
+                [lat1, lon0],   # solo latitud
+                [lat1, lon1],   # luego longitud
+            ]
+        else:
+            return [
+                [lat0, lon0],
+                [lat0, lon1],   # solo longitud
+                [lat1, lon1],   # luego latitud
+            ]
 
     # Sw 8P → Sw Campo A (Plaza Independencia)
-    path_plaza = [
-        [sw_core["lat"], sw_core["lon"]],
-        [-32.8890, -68.8455],    # esquina intermedia (ajustable)
-        [sw_plaza["lat"], sw_plaza["lon"]],
-    ]
-    add_manual_route(
-        m,
-        path_plaza,
-        "FO Sw 8P → Sw Campo A (Plaza Independencia)"
+    path_plaza = manhattan_path(
+        sw_core["lat"], sw_core["lon"],
+        sw_plaza["lat"], sw_plaza["lon"],
+        mode="lat_first"   # sube/baja y luego va a la plaza
     )
+    folium.PolyLine(
+        locations=path_plaza,
+        color="black",
+        weight=3,
+        tooltip="FO Sw 8P → Sw Campo A (Plaza Independencia)",
+    ).add_to(m)
 
-    # Sw 8P → Sw Campo B (Parque Central)
-    path_parque = [
-        [sw_core["lat"], sw_core["lon"]],
-        [-32.8892, -68.8475],    # hacia el oeste
-        [-32.8849, -68.8487],    # rumbo Parque Central
-        [sw_parque["lat"], sw_parque["lon"]],
-    ]
-    add_manual_route(
-        m,
-        path_parque,
-        "FO Sw 8P → Sw Campo B (Parque Central)"
+    # Sw 8P → Sw Campo B (Parque Central) — primero va al oeste, luego al norte
+    path_parque = manhattan_path(
+        sw_core["lat"], sw_core["lon"],
+        sw_parque["lat"], sw_parque["lon"],
+        mode="lon_first"
     )
+    folium.PolyLine(
+        locations=path_parque,
+        color="black",
+        weight=3,
+        tooltip="FO Sw 8P → Sw Campo B (Parque Central)",
+    ).add_to(m)
 
-    # Sw 8P → Sw Campo C (Terminal)
-    path_terminal = [
-        [sw_core["lat"], sw_core["lon"]],
-        [-32.8893, -68.8445],    # hacia el este
-        [-32.8932, -68.8427],    # bajando hacia la terminal
-        [sw_terminal["lat"], sw_terminal["lon"]],
-    ]
-    add_manual_route(
-        m,
-        path_terminal,
-        "FO Sw 8P → Sw Campo C (Terminal)"
+    # Sw 8P → Sw Campo C (Terminal) — primero al este, luego al sur
+    path_terminal = manhattan_path(
+        sw_core["lat"], sw_core["lon"],
+        sw_terminal["lat"], sw_terminal["lon"],
+        mode="lon_first"
     )
+    folium.PolyLine(
+        locations=path_terminal,
+        color="black",
+        weight=3,
+        tooltip="FO Sw 8P → Sw Campo C (Terminal)",
+    ).add_to(m)
 
     return m
 
@@ -539,8 +551,8 @@ En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
 
 Las líneas representan los **enlaces de fibra**:
 - CORE → Sw 8P (intra-edificio).
-- Sw 8P → cada switch de campo (FO urbana), siguiendo trayectos aproximados
-  por el trazado de calles.
+- Sw 8P → cada switch de campo (FO urbana), con recorridos en “L” 
+  para aproximar el trazado de calles y evitar diagonales que cortan manzanas.
 """)
 
     m = build_mendoza_p2p_map_manual()
@@ -661,4 +673,4 @@ with tab_comp:
     st.markdown("### Disparadores para la discusión en clase")
     st.markdown("- ¿En qué tipo de sitio conviene P2P con switches de campo? (ej: pocos nodos bien concentrados).")
     st.markdown("- ¿Cuándo justifica un anillo? (ej: corredores críticos y necesidad de alta disponibilidad).")
-    st.markdown("- ¿Cuándo FTTN equilibra costo, escalabilidad y mantenimiento en CCTV urbano?")
+    st.markmarkdown("- ¿Cuándo FTTN equilibra costo, escalabilidad y mantenimiento en CCTV urbano?")
