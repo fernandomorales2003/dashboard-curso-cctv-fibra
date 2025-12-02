@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 st.title("DASHBOARD DISEÑO CCTV")
-st.warning("VERSIÓN 3 — FIBRAS FICOM + SW CUADRADOS", icon="⚙️")
+st.warning("VERSIÓN 4 — FIBRAS FICOM + SW CUADRADOS + RANDOM NODOS", icon="⚙️")
 st.caption("Visualización didáctica de topologías: Punto a Punto, Anillo y FTTN")
 
 st.markdown("""
@@ -330,14 +330,19 @@ def create_topology_diagram(topology: str) -> go.Figure:
 # =========================================
 # MAPA EJEMPLO REAL — MENDOZA (P2P, OSMnx + Folium)
 # =========================================
-def build_mendoza_p2p_map_osmnx() -> folium.Map:
+def build_mendoza_p2p_map_osmnx(random_key: int = 0):
     """
     Mapa de ejemplo en la ciudad de Mendoza (P2P) usando:
     - OSMnx para obtener la red vial real y calcular rutas por las calles.
     - Folium + CartoDB Dark Matter como fondo (calles sobre fondo oscuro).
-    - Switches de campo ubicados a mitad de cuadra.
+    - Switches de campo ubicados a mitad de cuadra (posiciones aleatorias alrededor del centro).
     - 2 cámaras por cada switch de campo, en las esquinas de la cuadra (UTP).
+    Devuelve:
+      - mapa Folium
+      - lista con info de distancias de cada troncal FO Sw8P → SwCampo
     """
+
+    rng = np.random.default_rng(random_key)
 
     # Centro aproximado de Mendoza
     center_lat = -32.8895
@@ -361,6 +366,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     )
 
     # Nodos lógicos de nuestra red CCTV (lat/lon "referencia")
+    # CORE y SW_CORE fijos cerca del centro
     nodes = [
         {
             "name": "CORE / NVR",
@@ -376,28 +382,23 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             "lon": center_lon,
             "descripcion": "Switch de 8 puertos ópticos en Sala Técnica (troncal TR01)",
         },
-        {
-            "name": "TR01-SW01-ND01",
-            "type": "SW_CAMPO",
-            "lat": center_lat + 0.004,
-            "lon": center_lon,
-            "descripcion": "Switch de campo Nodo 01 (troncal TR01)",
-        },
-        {
-            "name": "TR01-SW02-ND02",
-            "type": "SW_CAMPO",
-            "lat": center_lat + 0.005,
-            "lon": center_lon - 0.006,
-            "descripcion": "Switch de campo Nodo 02 (troncal TR01)",
-        },
-        {
-            "name": "TR01-SW03-ND03",
-            "type": "SW_CAMPO",
-            "lat": center_lat - 0.004,
-            "lon": center_lon + 0.006,
-            "descripcion": "Switch de campo Nodo 03 (troncal TR01)",
-        },
     ]
+
+    # Generamos 3 nodos de campo aleatorios alrededor del centro (dentro de ~500–900 m)
+    field_nodes = []
+    for i in range(3):
+        # offsets aleatorios en grados (~0.003–0.007 → ~300–800 m aprox.)
+        dlat = rng.uniform(-0.006, 0.006)
+        dlon = rng.uniform(-0.006, 0.006)
+        field_nodes.append({
+            "name": f"TR01-SW0{i+1}-ND0{i+1}",
+            "type": "SW_CAMPO",
+            "lat": center_lat + dlat,
+            "lon": center_lon + dlon,
+            "descripcion": f"Switch de campo Nodo 0{i+1} (troncal TR01)",
+        })
+
+    nodes.extend(field_nodes)
 
     df_nodes = pd.DataFrame(nodes)
 
@@ -494,7 +495,10 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
                 tooltip=row["name"],
             ).add_to(m)
 
-    # Helper para dibujar ruta real por calles con fallback y color propio
+    # Lista para guardar distancias de cada troncal
+    troncal_info = []
+
+    # Helper para dibujar ruta real por calles con fallback y registrar longitud
     def add_route_by_street(
         map_obj,
         G_work,
@@ -503,13 +507,14 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
         lon0,
         lat1,
         lon1,
+        label: str,
         tooltip: str,
         color: str,
     ):
         """
         Intenta calcular la ruta más corta en G_work.
         Si no hay camino, hace fallback a G_full (permitiendo compartir tramos).
-        Dibuja la traza en el color indicado.
+        Dibuja la traza y guarda la distancia total en troncal_info.
         """
         def _shortest_path(G_used):
             orig_node = ox.distance.nearest_nodes(G_used, X=lon0, Y=lat0)
@@ -529,6 +534,17 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             except nx.NetworkXNoPath:
                 return  # ni siquiera en el grafo completo hay camino
 
+        # Calcular longitud total de la ruta en metros
+        total_len = 0.0
+        for u, v in zip(route, route[1:]):
+            data = G_full.get_edge_data(u, v)
+            if data is None:
+                data = G_full.get_edge_data(v, u)
+            if data:
+                # MultiDiGraph: tomamos el primer edge
+                edge_attr = list(data.values())[0]
+                total_len += edge_attr.get("length", 0.0)
+
         route_coords = [(G_full.nodes[n]["y"], G_full.nodes[n]["x"]) for n in route]
 
         # Arrancar y terminar en los equipos exactos
@@ -541,6 +557,12 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             weight=3,
             tooltip=tooltip,
         ).add_to(map_obj)
+
+        # Guardar info de troncal
+        troncal_info.append({
+            "name": label,
+            "distance_m": total_len
+        })
 
         # Si usamos G_work, gastamos edges; si usamos fallback, no tocamos nada
         if not use_fallback:
@@ -555,7 +577,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
     sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
 
-    # CORE → Sw 8P (intra-edificio, recto y FICOM)
+    # CORE → Sw 8P (intra-edificio, recto y FICOM) – lo dejamos como tramo corto interno
     folium.PolyLine(
         locations=[[core["lat"], core["lon"]], [sw_core["lat"], sw_core["lon"]]],
         color=FICOM_COLOR,
@@ -577,6 +599,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             sw_core["lon"],
             row["mid_lat"],
             row["mid_lon"],
+            label=row["name"],
             tooltip=f"FO {sw_core['name']} → {row['name']}",
             color=color,
         )
@@ -634,7 +657,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             tooltip=f"Cámara IP 2 asociada a {row['name']}",
         ).add_to(m)
 
-    return m
+    return m, troncal_info
 
 
 # =========================================
@@ -684,28 +707,37 @@ with tab_p2p:
     st.markdown("## Ejemplo real — Ciudad de Mendoza (P2P sobre mapa)")
 
     st.markdown("""
-En este ejemplo se ubican los elementos sobre una troncal lógica **TR01**:
-
-- **CORE / NVR** (círculo rojo) dentro de un **Datacenter**.
-- `TR01-SW00-DC-8P` (cuadrado naranja) como switch de 8 puertos ópticos en Sala Técnica.
-- Tres **switches de campo** (cuadrados verdes), ubicados a **mitad de cuadra**, todos a menos de ~1 km del CORE:
-  - `TR01-SW01-ND01`  
-  - `TR01-SW02-ND02`  
-  - `TR01-SW03-ND03`  
-
-Las líneas representan:
-- Enlaces de **fibra óptica** (con colores distintos) desde `TR01-SW00-DC-8P` hacia cada Sw Campo.
-- Desde cada Sw Campo, **2 UTP punteados finos** (≤ 100 m aprox.) hacia las **dos esquinas de esa cuadra**, 
-  donde se marcan las **cámaras** con triángulos amarillos.
-
-La nomenclatura `TR01-SWxx-NDyy` ayuda a los técnicos a:
-- Identificar la **troncal** (TR01).
-- Saber qué **switch** están trabajando (`SW01/02/03`).
-- Diferenciar el **nodo lógico** dentro de la troncal (`ND01/02/03`).
+En este ejemplo se ubican los elementos sobre una troncal lógica **TR01**.
+Podés **regenerar aleatoriamente** la ubicación de los nodos de campo (TR01-SW0x-ND0x)
+para discutir distintas variantes de diseño.
 """)
 
-    m = build_mendoza_p2p_map_osmnx()
+    # ---- Estado para randomizar nodos de campo ----
+    if "p2p_rand_key" not in st.session_state:
+        st.session_state["p2p_rand_key"] = 0
+
+    cols_btn = st.columns([1, 3])
+    with cols_btn[0]:
+        if st.button("🔁 Regenerar nodos de campo"):
+            st.session_state["p2p_rand_key"] += 1
+
+    # Construimos mapa y distancias con la "seed" actual
+    m, troncal_info = build_mendoza_p2p_map_osmnx(
+        random_key=st.session_state["p2p_rand_key"]
+    )
     components.html(m._repr_html_(), height=500)
+
+    # Mostrar resumen de distancias de cada troncal
+    st.markdown("### Distancia de cada troncal FO (TR01-SW00-DC-8P → Sw Campo)")
+    if troncal_info:
+        for info in troncal_info:
+            dist_m = info["distance_m"]
+            dist_km = dist_m / 1000.0
+            st.markdown(
+                f"- **{info['name']}**: {dist_m:,.0f} m (≈ {dist_km:.2f} km)",
+            )
+    else:
+        st.caption("No se pudieron calcular las distancias de las troncales en este ejemplo.")
 
 # =========================================================
 # TAB 2 — ANILLO
@@ -724,7 +756,7 @@ with tab_ring:
         st.markdown("**Idea visual:**")
         st.markdown("- Anillo de switches interconectados (fibra en color FICOM).")
         st.markdown("- Derivaciones hacia cámaras en cada nodo (UTP).")
-        st.markmarkdown("- Soporta redundancia por camino alternativo ante cortes.")
+        st.markdown("- Soporta redundancia por camino alternativo ante cortes.")
 
         fig_ring = create_topology_diagram("ring")
         st.plotly_chart(fig_ring, use_container_width=True)
