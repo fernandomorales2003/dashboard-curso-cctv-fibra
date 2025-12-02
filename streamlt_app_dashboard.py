@@ -72,7 +72,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
             y=[sw_core_y],
             mode="markers+text",
             marker=dict(size=20, symbol="square", color="orange"),
-            text=["Sw 8P ópticas"],
+            text=["TR01-SW00-DC-8P"],
             textposition="bottom center",
             showlegend=False
         ))
@@ -88,9 +88,9 @@ def create_topology_diagram(topology: str) -> go.Figure:
 
         # Switches de campo (cuadrados verdes, 1 entrada óptica, varias salidas eléctricas)
         field_switches = [
-            {"name": "Sw Campo A", "x": 0.3, "y": 0.8},
-            {"name": "Sw Campo B", "x": 0.3, "y": 0.5},
-            {"name": "Sw Campo C", "x": 0.3, "y": 0.2},
+            {"name": "TR01-SW01\nND01", "x": 0.3, "y": 0.8},
+            {"name": "TR01-SW02\nND02", "x": 0.3, "y": 0.5},
+            {"name": "TR01-SW03\nND03", "x": 0.3, "y": 0.2},
         ]
 
         cam_index = 1
@@ -145,7 +145,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 cam_index += 1
 
         fig.update_layout(
-            title="Topología Punto a Punto (CORE → Sw 8P → Sw de campo → Cámaras)",
+            title="Topología Punto a Punto (CORE → TR01-SW00-DC-8P → Sw de campo → Cámaras)",
             xaxis=dict(visible=False),
             yaxis=dict(visible=False),
             plot_bgcolor="white",
@@ -181,13 +181,13 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 showlegend=False
             ))
 
-        # Switches (cuadrados azules)
+        # Switches (cuadrados azules) – nombres genéricos TR01-SW01..06
         fig.add_trace(go.Scatter(
             x=switch_x,
             y=switch_y,
             mode="markers+text",
             marker=dict(size=16, symbol="square", color="royalblue"),
-            text=[f"Sw {i+1}" for i in range(n)],
+            text=[f"TR01-SW0{i+1}" for i in range(n)],
             textposition="top center",
             showlegend=False
         ))
@@ -287,7 +287,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 y=[sy],
                 mode="markers+text",
                 marker=dict(size=16, symbol="square", color="green"),
-                text=[f"Sw {i}"],
+                text=[f"TR01-SW0{i+1}-ND0{i}"],
                 textposition="bottom center",
                 showlegend=False
             ))
@@ -367,35 +367,35 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             "type": "CORE",
             "lat": center_lat + 0.0003,
             "lon": center_lon - 0.0003,
-            "descripcion": "NVR dentro del Datacenter",
+            "descripcion": "Grabador / NVR en Datacenter",
         },
         {
-            "name": "Sw 8P ópticas (Sala Técnica)",
+            "name": "TR01-SW00-DC-8P",
             "type": "SW_CORE",
             "lat": center_lat,
             "lon": center_lon,
-            "descripcion": "Switch de distribución óptica principal dentro del Datacenter",
+            "descripcion": "Switch de 8 puertos ópticos en Sala Técnica (troncal TR01)",
         },
         {
-            "name": "Sw Campo A — Plaza Independencia",
+            "name": "TR01-SW01-ND01",
             "type": "SW_CAMPO",
             "lat": center_lat + 0.004,
             "lon": center_lon,
-            "descripcion": "Switch de campo alimentando 4 cámaras de la plaza",
+            "descripcion": "Switch de campo Nodo 01 (troncal TR01)",
         },
         {
-            "name": "Sw Campo B — Parque Central",
+            "name": "TR01-SW02-ND02",
             "type": "SW_CAMPO",
             "lat": center_lat + 0.005,
             "lon": center_lon - 0.006,
-            "descripcion": "Switch de campo alimentando cámaras del Parque Central",
+            "descripcion": "Switch de campo Nodo 02 (troncal TR01)",
         },
         {
-            "name": "Sw Campo C — Terminal de Ómnibus",
+            "name": "TR01-SW03-ND03",
             "type": "SW_CAMPO",
             "lat": center_lat - 0.004,
             "lon": center_lon + 0.006,
-            "descripcion": "Switch de campo alimentando cámaras en accesos a la Terminal",
+            "descripcion": "Switch de campo Nodo 03 (troncal TR01)",
         },
     ]
 
@@ -440,7 +440,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
         weight=2,
         dash_array="5,5",
         fill=False,
-        tooltip="DATACENTER (CORE / NVR + Sw 8P)",
+        tooltip="DATACENTER (CORE / NVR + TR01-SW00-DC-8P)",
     ).add_to(m)
 
     # Colores por tipo (brillantes para fondo negro)
@@ -459,7 +459,6 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     # - SW_CAMPO: cuadrados verdes a mitad de cuadra (mid_lat/mid_lon)
     for _, row in df_nodes.iterrows():
         if row["type"] == "CORE":
-            # CORE en posición original
             folium.CircleMarker(
                 location=[row["lat"], row["lon"]],
                 radius=8,
@@ -471,27 +470,25 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
                 tooltip=row["name"],
             ).add_to(m)
         elif row["type"] == "SW_CORE":
-            # Sw 8P en posición original
             RegularPolygonMarker(
                 location=[row["lat"], row["lon"]],
                 number_of_sides=4,
                 radius=9,
                 color=node_color(row["type"]),
                 fill=True,
-                fill_color=node_color(row["type"]),
+                fill_color=node_color(row["type"]],
                 fill_opacity=0.9,
                 popup=f"{row['name']}<br>{row['descripcion']}",
                 tooltip=row["name"],
             ).add_to(m)
         elif row["type"] == "SW_CAMPO":
-            # Sw de campo en mitad de cuadra
             RegularPolygonMarker(
                 location=[row["mid_lat"], row["mid_lon"]],
                 number_of_sides=4,
                 radius=9,
-                color=node_color(row["type"]),
+                color=node_color(row["type"]],
                 fill=True,
-                fill_color=node_color(row["type"]),
+                fill_color=node_color(row["type"]],
                 fill_opacity=0.9,
                 popup=f"{row['name']}<br>{row['descripcion']}",
                 tooltip=row["name"],
@@ -563,7 +560,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
         locations=[[core["lat"], core["lon"]], [sw_core["lat"], sw_core["lon"]]],
         color=FICOM_COLOR,
         weight=4,
-        tooltip="FO CORE → Sw 8P",
+        tooltip="FO CORE / NVR → TR01-SW00-DC-8P",
     ).add_to(m)
 
     # Colores distintos para cada traza Sw 8P → Sw Campo
@@ -580,7 +577,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             sw_core["lon"],
             row["mid_lat"],
             row["mid_lon"],
-            tooltip=f"FO Sw 8P → {row['name']}",
+            tooltip=f"FO {sw_core['name']} → {row['name']}",
             color=color,
         )
 
@@ -597,22 +594,22 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
         folium.PolyLine(
             locations=[[mid_lat, mid_lon], [c1_lat, c1_lon]],
             color="white",
-            weight=1,              # más fino que la FO
-            dash_array="4,4",      # punteado
-            tooltip="UTP desde Sw Campo a cámara 1 (≤ 100 m aprox.)",
+            weight=1,
+            dash_array="4,4",
+            tooltip=f"UTP desde {row['name']} a Cámara 1 (≤ 100 m aprox.)",
         ).add_to(m)
 
         # Cámara 1 como triángulo en esquina 1
         RegularPolygonMarker(
             location=[c1_lat, c1_lon],
-            number_of_sides=3,      # triángulo
+            number_of_sides=3,
             radius=7,
             rotation=0,
             color="yellow",
             fill=True,
             fill_color="yellow",
             fill_opacity=0.9,
-            tooltip="Cámara IP 1",
+            tooltip=f"Cámara IP 1 asociada a {row['name']}",
         ).add_to(m)
 
         # Cable UTP punteado hacia esquina 2
@@ -621,7 +618,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             color="white",
             weight=1,
             dash_array="4,4",
-            tooltip="UTP desde Sw Campo a cámara 2 (≤ 100 m aprox.)",
+            tooltip=f"UTP desde {row['name']} a Cámara 2 (≤ 100 m aprox.)",
         ).add_to(m)
 
         # Cámara 2 como triángulo en esquina 2
@@ -634,7 +631,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             fill=True,
             fill_color="yellow",
             fill_opacity=0.9,
-            tooltip="Cámara IP 2",
+            tooltip=f"Cámara IP 2 asociada a {row['name']}",
         ).add_to(m)
 
     return m
@@ -658,14 +655,14 @@ with tab_p2p:
     with col1:
         st.markdown("### Esquema lógico P2P (con switches de campo)")
         st.info(
-            "CORE / NVR → Switch de 8 bocas ópticas → Fibra a switches de campo "
-            "con 1 entrada óptica y varias salidas eléctricas → Cámaras por UTP."
+            "CORE / NVR → TR01-SW00-DC-8P → Fibra a switches de campo "
+            "(TR01-SW01-ND01 / ND02 / ND03) con 1 entrada óptica y varias salidas eléctricas → Cámaras por UTP."
         )
         st.markdown("**Flujo básico:**")
         st.markdown("- El CORE concentra el grabador / NVR y routing principal.")
-        st.markdown("- Un switch con **8 puertos ópticos** distribuye la troncal.")
-        st.markdown("- Cada puerto óptico alimenta un **switch de campo**.")
-        st.markdown("- Desde cada switch de campo salen **2 o más cámaras** por UTP.")
+        st.markdown("- `TR01-SW00-DC-8P` distribuye la troncal óptica de la troncal TR01.")
+        st.markdown("- Cada puerto óptico alimenta un **switch de campo** (TR01-SW01-ND01 / SW02-ND02 / SW03-ND03).")
+        st.markdown("- Desde cada switch de campo salen **2 o más cámaras** por UTP (últimos 100 m).")
 
         fig_p2p = create_topology_diagram("p2p")
         st.plotly_chart(fig_p2p, use_container_width=True)
@@ -673,13 +670,13 @@ with tab_p2p:
     with col2:
         st.markdown("### Indicadores P2P (ejemplo)")
         st.metric("Total de cámaras (ejemplo)", 12)
-        st.metric("Puertos ópticos en CORE", 8)
-        st.metric("Switches de campo", 3)
+        st.metric("Puertos ópticos en CORE (Sw 8P)", 8)
+        st.metric("Switches de campo (TR01-SW01/02/03)", 3)
 
         st.markdown("#### Ventajas / Desventajas")
-        st.success("✔ Arquitectura intuitiva (CORE → distribución → campo).")
-        st.success("✔ Permite agrupar varias cámaras en un mismo punto de FO.")
-        st.warning("✖ Sigue consumiendo varios puertos ópticos en el CORE.")
+        st.success("✔ Arquitectura intuitiva (CORE → Sw troncal → Sw de campo).")
+        st.success("✔ Permite agrupar varias cámaras por cada punto de FO (Sw campo).")
+        st.warning("✖ Sigue consumiendo varios puertos ópticos en el Sw troncal.")
         st.warning("✖ Si falla un switch de campo, caen todas las cámaras de ese punto.")
 
     st.markdown("---")
@@ -687,23 +684,24 @@ with tab_p2p:
     st.markdown("## Ejemplo real — Ciudad de Mendoza (P2P sobre mapa)")
 
     st.markdown("""
-En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
+En este ejemplo se ubican los elementos sobre una troncal lógica **TR01**:
 
 - **CORE / NVR** (círculo rojo) dentro de un **Datacenter**.
-- Un **switch de 8 puertos ópticos** (cuadrado naranja) en la misma sala técnica.
+- `TR01-SW00-DC-8P` (cuadrado naranja) como switch de 8 puertos ópticos en Sala Técnica.
 - Tres **switches de campo** (cuadrados verdes), ubicados a **mitad de cuadra**, todos a menos de ~1 km del CORE:
-  - `Sw Campo A — Plaza Independencia`
-  - `Sw Campo B — Parque Central`
-  - `Sw Campo C — Terminal de Ómnibus`
+  - `TR01-SW01-ND01`  
+  - `TR01-SW02-ND02`  
+  - `TR01-SW03-ND03`  
 
 Las líneas representan:
-- Enlaces de **fibra óptica** (con colores distintos) desde el Sw 8P hacia cada Sw Campo.
+- Enlaces de **fibra óptica** (con colores distintos) desde `TR01-SW00-DC-8P` hacia cada Sw Campo.
 - Desde cada Sw Campo, **2 UTP punteados finos** (≤ 100 m aprox.) hacia las **dos esquinas de esa cuadra**, 
   donde se marcan las **cámaras** con triángulos amarillos.
 
-Esto te permite explicar:
-- La diferencia entre **traza troncal en FO** y **últimos 100 m en cobre/UTP**.
-- La relación entre la red lógica y la **geografía real de la ciudad** (calles, esquinas y cuadras).
+La nomenclatura `TR01-SWxx-NDyy` ayuda a los técnicos a:
+- Identificar la **troncal** (TR01).
+- Saber qué **switch** están trabajando (`SW01/02/03`).
+- Diferenciar el **nodo lógico** dentro de la troncal (`ND01/02/03`).
 """)
 
     m = build_mendoza_p2p_map_osmnx()
