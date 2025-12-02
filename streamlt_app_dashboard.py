@@ -7,6 +7,7 @@ import streamlit.components.v1 as components
 
 import osmnx as ox
 import networkx as nx
+from folium.features import RegularPolygonMarker
 
 # =========================================
 # CONFIGURACIÓN GENERAL DEL DASHBOARD
