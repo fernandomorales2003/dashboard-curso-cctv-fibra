@@ -659,12 +659,12 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
         ).add_to(m)
 
     # ------------------------------------
-    # LEYENDA INFERIOR DERECHA (REFERENCIAS + DISTANCIAS)
+    # LEYENDA SUPERIOR DERECHA (REFERENCIAS + DISTANCIAS)
     # ------------------------------------
-    legend_html = """
+    legend_html = f"""
     <div style="
         position: fixed;
-        bottom: 20px;
+        top: 20px;
         right: 20px;
         z-index: 9999;
         background-color: rgba(0, 0, 0, 0.75);
@@ -688,7 +688,7 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
         Sw de campo TR01-SW0x-ND0x
       </div>
       <div style="margin-bottom: 4px;">
-        <span style="display:inline-block;width:22px;border-bottom:3px solid """ + FICOM_COLOR + """;margin-right:4px;"></span>
+        <span style="display:inline-block;width:22px;border-bottom:3px solid {FICOM_COLOR};margin-right:4px;"></span>
         Fibra óptica TR01
       </div>
       <div style="margin-bottom: 4px;">
@@ -852,7 +852,7 @@ with tab_fttn:
         st.markdown("**Flujo básico:**")
         st.markdown("- CORE / NVR en un punto central (datacenter).")
         st.markdown("- Fibra troncal hasta nodos FTTN estratégicos.")
-        st.markmarkdown("- En cada nodo: elementos de acceso (ONU / switch).")
+        st.markdown("- En cada nodo: elementos de acceso (ONU / switch).")
         st.markdown("- Desde el nodo, cámaras cercanas por UTP o FO corta.")
 
         fig_fttn = create_topology_diagram("fttn")
