@@ -392,10 +392,10 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             edge_width=1,
             edge_color="#888888",
             edge_opacity=0.6,
-            node_size=0,          # no dibujamos nodos de la red vial
+            node_size=0,
         )
     except TypeError:
-        # Por si la versión es más vieja y no acepta esos kwargs
+        # Fallback por si la versión instalada tiene firma distinta
         m = ox.plot_graph_folium(G, tiles="OpenStreetMap")
 
     # Colores por tipo de nodo
