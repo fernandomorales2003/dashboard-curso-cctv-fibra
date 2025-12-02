@@ -4,8 +4,6 @@ import numpy as np
 import plotly.graph_objects as go
 import folium
 import streamlit.components.v1 as components
-import osmnx as ox
-import networkx as nx
 
 # =========================================
 # CONFIGURACIÓN GENERAL DEL DASHBOARD
@@ -322,25 +320,24 @@ def create_topology_diagram(topology: str) -> go.Figure:
 
 
 # =========================================
-# MAPA EJEMPLO REAL — MENDOZA (P2P, OSMnx + Folium “a mano”)
+# MAPA EJEMPLO REAL — MENDOZA (P2P, sin osmnx)
 # =========================================
-def build_mendoza_p2p_map_osmnx() -> folium.Map:
+def build_mendoza_p2p_map_manual() -> folium.Map:
     """
-    Mapa de ejemplo en la ciudad de Mendoza (P2P) usando:
-    - OSMnx para obtener la red vial real y calcular rutas por las calles.
-    - Folium + OpenStreetMap para mostrar el mapa.
+    Mapa de ejemplo en la ciudad de Mendoza (P2P) usando Folium + OpenStreetMap:
+
+    - CORE / NVR en Microcentro
+    - Sw 8P ópticas en el mismo edificio
+    - 3 switches de campo (Plaza Independencia, Parque Central, Terminal)
+      todos a menos de ~1 km del CORE.
+
+    Los enlaces FO se dibujan como polilíneas con varios puntos intermedios
+    para simular ir “por las calles”.
     """
 
     # Coordenadas aproximadas del centro de Mendoza
     center_lat = -32.8895
     center_lon = -68.8458
-
-    # Descargamos la red vial en un radio de ~2 km alrededor del centro
-    G = ox.graph_from_point(
-        (center_lat, center_lon),
-        dist=2000,
-        network_type="drive"
-    )
 
     # NODOS (coordenadas aprox y distancias < ~1km)
     nodes = [
@@ -383,32 +380,12 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
 
     df_nodes = pd.DataFrame(nodes)
 
-    # === Mapa base OSM “a mano” ===
+    # Mapa base OSM
     m = folium.Map(
         location=[center_lat, center_lon],
         zoom_start=14,
         tiles="OpenStreetMap"
     )
-
-    # Dibujamos las calles del grafo G como líneas grises
-    for u, v, data in G.edges(data=True):
-        geom = data.get("geometry", None)
-        if geom is not None:
-            # geometry es un LineString de shapely
-            xs, ys = geom.xy
-            coords = list(zip(ys, xs))  # (lat, lon)
-        else:
-            # sin geometry, unimos directamente los nodos
-            y1, x1 = G.nodes[u]["y"], G.nodes[u]["x"]
-            y2, x2 = G.nodes[v]["y"], G.nodes[v]["x"]
-            coords = [(y1, x1), (y2, x2)]
-
-        folium.PolyLine(
-            locations=coords,
-            color="#bbbbbb",
-            weight=1,
-            opacity=0.6
-        ).add_to(m)
 
     # Colores por tipo de nodo
     def node_color(t):
@@ -433,30 +410,12 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             tooltip=row["name"],
         ).add_to(m)
 
-    # Helper para dibujar ruta real por calles usando la red de OSMnx
-    def add_route_by_street(map_obj, G, lat0, lon0, lat1, lon1, tooltip: str):
-        """
-        Calcula la ruta más corta por la red vial entre (lat0, lon0) y (lat1, lon1)
-        y la dibuja en el mapa.
-        """
-        # nearest_nodes usa primero lon, luego lat
-        orig_node = ox.distance.nearest_nodes(G, lon0, lat0)
-        dest_node = ox.distance.nearest_nodes(G, lon1, lat1)
-
-        route = nx.shortest_path(G, orig_node, dest_node, weight="length")
-        route_coords = [(G.nodes[n]["y"], G.nodes[n]["x"]) for n in route]  # (lat, lon)
-
-        folium.PolyLine(
-            locations=route_coords,
-            color="black",
-            weight=3,
-            tooltip=tooltip,
-        ).add_to(map_obj)
-
     # Recuperamos nodos clave
     core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
-    sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
+    sw_plaza = df_nodes[df_nodes["name"].str.contains("Plaza Independencia")].iloc[0]
+    sw_parque = df_nodes[df_nodes["name"].str.contains("Parque Central")].iloc[0]
+    sw_terminal = df_nodes[df_nodes["name"].str.contains("Terminal")].iloc[0]
 
     # CORE → Sw 8P (intra-edificio, recto)
     folium.PolyLine(
@@ -466,15 +425,52 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
         tooltip="FO CORE → Sw 8P",
     ).add_to(m)
 
-    # Sw 8P → cada Sw de campo, por calles reales (ruta más corta)
-    for _, row in sw_campo.iterrows():
-        add_route_by_street(
-            m,
-            G,
-            sw_core["lat"], sw_core["lon"],
-            row["lat"], row["lon"],
-            tooltip=f"FO Sw 8P → {row['name']}",
-        )
+    # Helper para hacer rutas tipo “por calles” con varios puntos
+    def add_manual_route(map_obj, coords, tooltip: str):
+        folium.PolyLine(
+            locations=coords,
+            color="black",
+            weight=3,
+            tooltip=tooltip,
+        ).add_to(map_obj)
+
+    # Sw 8P → Sw Campo A (Plaza Independencia)
+    path_plaza = [
+        [sw_core["lat"], sw_core["lon"]],
+        [-32.8890, -68.8455],    # esquina intermedia (ajustable)
+        [sw_plaza["lat"], sw_plaza["lon"]],
+    ]
+    add_manual_route(
+        m,
+        path_plaza,
+        "FO Sw 8P → Sw Campo A (Plaza Independencia)"
+    )
+
+    # Sw 8P → Sw Campo B (Parque Central)
+    path_parque = [
+        [sw_core["lat"], sw_core["lon"]],
+        [-32.8892, -68.8475],    # hacia el oeste
+        [-32.8849, -68.8487],    # rumbo Parque Central
+        [sw_parque["lat"], sw_parque["lon"]],
+    ]
+    add_manual_route(
+        m,
+        path_parque,
+        "FO Sw 8P → Sw Campo B (Parque Central)"
+    )
+
+    # Sw 8P → Sw Campo C (Terminal)
+    path_terminal = [
+        [sw_core["lat"], sw_core["lon"]],
+        [-32.8893, -68.8445],    # hacia el este
+        [-32.8932, -68.8427],    # bajando hacia la terminal
+        [sw_terminal["lat"], sw_terminal["lon"]],
+    ]
+    add_manual_route(
+        m,
+        path_terminal,
+        "FO Sw 8P → Sw Campo C (Terminal)"
+    )
 
     return m
 
@@ -543,11 +539,11 @@ En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
 
 Las líneas representan los **enlaces de fibra**:
 - CORE → Sw 8P (intra-edificio).
-- Sw 8P → cada switch de campo (FO urbana), siguiendo rutas reales por las calles
-  según la red vial de OpenStreetMap.
+- Sw 8P → cada switch de campo (FO urbana), siguiendo trayectos aproximados
+  por el trazado de calles.
 """)
 
-    m = build_mendoza_p2p_map_osmnx()
+    m = build_mendoza_p2p_map_manual()
     components.html(m._repr_html_(), height=500)
 
     st.markdown("""
@@ -556,9 +552,9 @@ Las líneas representan los **enlaces de fibra**:
 - Identificar sobre el mapa:
   - Dónde está el **CORE** y el **switch de 8P**.
   - La ubicación de cada **switch de campo** (plaza, parque, terminal).
-- Analizar por qué el algoritmo eligió ese recorrido por calles (mínima distancia).
-- Discutir por dónde **realmente canalizarías** la fibra (postes, ductos, vereda, etc.)
-  y si cambiarías el recorrido.
+- Discutir si el recorrido de fibra planteado es razonable
+  según el trazado de calles, postes, ductos, etc.
+- Proponer variantes de recorrido y qué impacto tienen en longitud de FO y costos.
 """)
 
 # =========================================================
