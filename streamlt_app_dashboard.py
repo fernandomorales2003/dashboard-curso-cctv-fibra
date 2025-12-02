@@ -658,7 +658,7 @@ with tab_fttn:
         st.markdown("**Flujo básico:**")
         st.markdown("- CORE / NVR en un punto central (datacenter).")
         st.markdown("- Fibra troncal hasta nodos FTTN estratégicos.")
-        st.markmarkdown("- En cada nodo: elementos de acceso (ONU / switch).")
+        st.markdown("- En cada nodo: elementos de acceso (ONU / switch).")
         st.markdown("- Desde el nodo, cámaras cercanas por UTP o FO corta.")
 
         fig_fttn = create_topology_diagram("fttn")
