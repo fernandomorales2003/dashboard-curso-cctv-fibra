@@ -322,7 +322,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
 
 
 # =========================================
-# MAPA EJEMPLO REAL — MENDOZA (P2P, OSMnx + Folium)
+# MAPA EJEMPLO REAL — MENDOZA (P2P, OSMnx + Folium “a mano”)
 # =========================================
 def build_mendoza_p2p_map_osmnx() -> folium.Map:
     """
@@ -383,20 +383,32 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
 
     df_nodes = pd.DataFrame(nodes)
 
-    # === Mapa base con la red vial dibujada ===
-    # En osmnx actual la función es ox.plot_graph_folium (no ox.folium.plot_graph_folium)
-    try:
-        m = ox.plot_graph_folium(
-            G,
-            tiles="OpenStreetMap",
-            edge_width=1,
-            edge_color="#888888",
-            edge_opacity=0.6,
-            node_size=0,
-        )
-    except TypeError:
-        # Fallback por si la versión instalada tiene firma distinta
-        m = ox.plot_graph_folium(G, tiles="OpenStreetMap")
+    # === Mapa base OSM “a mano” ===
+    m = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=14,
+        tiles="OpenStreetMap"
+    )
+
+    # Dibujamos las calles del grafo G como líneas grises
+    for u, v, data in G.edges(data=True):
+        geom = data.get("geometry", None)
+        if geom is not None:
+            # geometry es un LineString de shapely
+            xs, ys = geom.xy
+            coords = list(zip(ys, xs))  # (lat, lon)
+        else:
+            # sin geometry, unimos directamente los nodos
+            y1, x1 = G.nodes[u]["y"], G.nodes[u]["x"]
+            y2, x2 = G.nodes[v]["y"], G.nodes[v]["x"]
+            coords = [(y1, x1), (y2, x2)]
+
+        folium.PolyLine(
+            locations=coords,
+            color="#bbbbbb",
+            weight=1,
+            opacity=0.6
+        ).add_to(m)
 
     # Colores por tipo de nodo
     def node_color(t):
