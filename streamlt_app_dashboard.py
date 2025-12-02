@@ -4,6 +4,8 @@ import numpy as np
 import plotly.graph_objects as go
 import folium
 import streamlit.components.v1 as components
+import osmnx as ox
+import networkx as nx
 
 # =========================================
 # CONFIGURACIÓN GENERAL DEL DASHBOARD
@@ -320,23 +322,31 @@ def create_topology_diagram(topology: str) -> go.Figure:
 
 
 # =========================================
-# MAPA EJEMPLO REAL — MENDOZA (P2P, con FOLIUM y trayectos en L)
+# MAPA EJEMPLO REAL — MENDOZA (P2P, OSMnx + Folium)
 # =========================================
-def build_mendoza_p2p_map_folium() -> folium.Map:
+def build_mendoza_p2p_map_osmnx() -> folium.Map:
     """
-    Mapa de ejemplo en la ciudad de Mendoza (P2P) usando Folium + OpenStreetMap:
+    Mapa de ejemplo en la ciudad de Mendoza (P2P) usando:
+    - OSMnx para obtener la red vial real y calcular rutas por las calles.
+    - Folium + OpenStreetMap para mostrar el mapa.
+
+    Nodos:
     - CORE / NVR en Microcentro
     - Sw 8P ópticas en el mismo edificio
     - 3 switches de campo (Plaza Independencia, Parque Central, Terminal)
       todos a menos de ~1 km del CORE.
-
-    Los enlaces FO se dibujan con trayectos "en L" (por calles),
-    no en línea recta.
     """
 
     # Coordenadas aproximadas del centro de Mendoza
     center_lat = -32.8895
     center_lon = -68.8458
+
+    # Descargamos la red vial en un radio de ~2 km alrededor del centro
+    G = ox.graph_from_point(
+        (center_lat, center_lon),
+        dist=2000,
+        network_type="drive"
+    )
 
     # NODOS (coordenadas aprox y distancias < ~1km)
     nodes = [
@@ -379,8 +389,14 @@ def build_mendoza_p2p_map_folium() -> folium.Map:
 
     df_nodes = pd.DataFrame(nodes)
 
-    # Mapa base OSM
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=14, tiles="OpenStreetMap")
+    # Mapa base con la red vial dibujada
+    m = ox.folium.plot_graph_folium(
+        G,
+        weight=1,
+        color="#888888",
+        opacity=0.6,
+        tiles="OpenStreetMap"
+    )
 
     # Colores por tipo de nodo
     def node_color(t):
@@ -405,26 +421,27 @@ def build_mendoza_p2p_map_folium() -> folium.Map:
             tooltip=row["name"],
         ).add_to(m)
 
-    # Helper para dibujar camino tipo "por la calle" (L-shaped)
-    def street_path(lat0, lon0, lat1, lon1, mode="hv"):
+    # Helper para dibujar ruta real por calles usando la red de OSMnx
+    def add_route_by_street(map_obj, G, lat0, lon0, lat1, lon1, tooltip: str):
         """
-        mode="hv": primero horizontal (lon), luego vertical (lat)
-        mode="vh": primero vertical, luego horizontal
+        Calcula la ruta más corta por la red vial entre (lat0, lon0) y (lat1, lon1)
+        y la dibuja en el mapa.
         """
-        if mode == "hv":
-            return [
-                [lat0, lon0],
-                [lat0, lon1],  # cambia lon (este-oeste)
-                [lat1, lon1],  # luego lat (norte-sur)
-            ]
-        else:  # "vh"
-            return [
-                [lat0, lon0],
-                [lat1, lon0],  # cambia lat
-                [lat1, lon1],  # luego lon
-            ]
+        # nearest_nodes usa primero lon, luego lat
+        orig_node = ox.distance.nearest_nodes(G, lon0, lat0)
+        dest_node = ox.distance.nearest_nodes(G, lon1, lat1)
 
-    # Enlaces de FO:
+        route = nx.shortest_path(G, orig_node, dest_node, weight="length")
+        route_coords = [(G.nodes[n]["y"], G.nodes[n]["x"]) for n in route]  # (lat, lon)
+
+        folium.PolyLine(
+            locations=route_coords,
+            color="black",
+            weight=3,
+            tooltip=tooltip,
+        ).add_to(map_obj)
+
+    # Recuperamos nodos clave
     core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
     sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
@@ -437,30 +454,15 @@ def build_mendoza_p2p_map_folium() -> folium.Map:
         tooltip="FO CORE → Sw 8P",
     ).add_to(m)
 
-    # Sw 8P → cada Sw de campo, con trayectos en L
+    # Sw 8P → cada Sw de campo, por calles reales (ruta más corta)
     for _, row in sw_campo.iterrows():
-        # Elegimos modo distinto para que los caminos “doblen” en otro lado
-        if "Plaza Independencia" in row["name"]:
-            mode = "hv"   # primero este-oeste, luego norte-sur
-        elif "Parque Central" in row["name"]:
-            mode = "vh"   # primero norte-sur, luego este-oeste
-        elif "Terminal" in row["name"]:
-            mode = "hv"
-        else:
-            mode = "hv"
-
-        path = street_path(
+        add_route_by_street(
+            m,
+            G,
             sw_core["lat"], sw_core["lon"],
             row["lat"], row["lon"],
-            mode=mode
-        )
-
-        folium.PolyLine(
-            locations=path,
-            color="black",
-            weight=3,
             tooltip=f"FO Sw 8P → {row['name']}",
-        ).add_to(m)
+        )
 
     return m
 
@@ -529,10 +531,11 @@ En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
 
 Las líneas representan los **enlaces de fibra**:
 - CORE → Sw 8P (intra-edificio).
-- Sw 8P → cada switch de campo (FO urbana), siguiendo trayectos en “L” semejando calles.
+- Sw 8P → cada switch de campo (FO urbana), siguiendo rutas reales por las calles
+  según la red vial de OpenStreetMap.
 """)
 
-    m = build_mendoza_p2p_map_folium()
+    m = build_mendoza_p2p_map_osmnx()
     components.html(m._repr_html_(), height=500)
 
     st.markdown("""
@@ -541,8 +544,9 @@ Las líneas representan los **enlaces de fibra**:
 - Identificar sobre el mapa:
   - Dónde está el **CORE** y el **switch de 8P**.
   - La ubicación de cada **switch de campo** (plaza, parque, terminal).
-- Estimar la longitud de los enlaces de FO (todos menores a ~1 km).
-- Proponer cuántas cámaras conectarías en cada switch de campo y qué zonas cubrirían.
+- Analizar por qué el algoritmo eligió ese recorrido por calles (mínima distancia).
+- Discutir por dónde **realmente canalizarías** la fibra (postes, ductos, vereda, etc.)
+  y si cambiarías el recorrido.
 """)
 
 # =========================================================
