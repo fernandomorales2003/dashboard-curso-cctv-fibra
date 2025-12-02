@@ -48,25 +48,25 @@ def create_topology_diagram(topology: str) -> go.Figure:
     if topo == "p2p":
         fig = go.Figure()
 
-        # CORE a la izquierda
+        # CORE / NVR (círculo rojo) a la izquierda
         core_x, core_y = -0.9, 0.5
         fig.add_trace(go.Scatter(
             x=[core_x],
             y=[core_y],
             mode="markers+text",
-            marker=dict(size=22, symbol="square"),
+            marker=dict(size=22, symbol="circle", color="red"),
             text=["CORE / NVR"],
             textposition="bottom center",
             showlegend=False
         ))
 
-        # Switch óptico de 8 bocas (switch central)
+        # Switch óptico de 8 bocas (cuadrado azul) al medio
         sw_core_x, sw_core_y = -0.3, 0.5
         fig.add_trace(go.Scatter(
             x=[sw_core_x],
             y=[sw_core_y],
             mode="markers+text",
-            marker=dict(size=20, symbol="hexagon"),
+            marker=dict(size=20, symbol="square", color="royalblue"),
             text=["Sw 8P ópticas"],
             textposition="bottom center",
             showlegend=False
@@ -81,7 +81,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # Switches de campo (1 entrada óptica, varias salidas eléctricas)
+        # Switches de campo (cuadrados verdes, 1 entrada óptica, varias salidas eléctricas)
         field_switches = [
             {"name": "Sw Campo A", "x": 0.3, "y": 0.8},
             {"name": "Sw Campo B", "x": 0.3, "y": 0.5},
@@ -102,12 +102,12 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 showlegend=False
             ))
 
-            # Switch de campo
+            # Switch de campo (cuadrado verde)
             fig.add_trace(go.Scatter(
                 x=[sx],
                 y=[sy],
                 mode="markers+text",
-                marker=dict(size=18, symbol="square"),
+                marker=dict(size=18, symbol="square", color="green"),
                 text=[fs["name"]],
                 textposition="bottom center",
                 showlegend=False
@@ -140,7 +140,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 cam_index += 1
 
         fig.update_layout(
-            title="Topología Punto a Punto (CORE → Sw óptico → Sw de campo → Cámaras)",
+            title="Topología Punto a Punto (CORE → Sw 8P → Sw de campo → Cámaras)",
             xaxis=dict(visible=False),
             yaxis=dict(visible=False),
             plot_bgcolor="white",
@@ -176,12 +176,12 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 showlegend=False
             ))
 
-        # Switches
+        # Switches (cuadrados azules)
         fig.add_trace(go.Scatter(
             x=switch_x,
             y=switch_y,
             mode="markers+text",
-            marker=dict(size=16, symbol="square"),
+            marker=dict(size=16, symbol="square", color="royalblue"),
             text=[f"Sw {i+1}" for i in range(n)],
             textposition="top center",
             showlegend=False
@@ -204,7 +204,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 x=[cx],
                 y=[cy],
                 mode="markers+text",
-                marker=dict(size=12),
+                marker=dict(size=12, symbol="circle"),
                 text=[f"Cam {i+1}"],
                 textposition="top center",
                 showlegend=False
@@ -227,25 +227,25 @@ def create_topology_diagram(topology: str) -> go.Figure:
     if topo == "fttn":
         fig = go.Figure()
 
-        # CORE a la izquierda
+        # CORE / NVR círculo rojo
         core_x, core_y = -0.9, 0.5
         fig.add_trace(go.Scatter(
             x=[core_x],
             y=[core_y],
             mode="markers+text",
-            marker=dict(size=18, symbol="square"),
+            marker=dict(size=18, symbol="circle", color="red"),
             text=["CORE / NVR"],
             textposition="bottom center",
             showlegend=False
         ))
 
-        # Nodo FTTN al centro
+        # Nodo FTTN cuadrado azul
         node_x, node_y = -0.3, 0.5
         fig.add_trace(go.Scatter(
             x=[node_x],
             y=[node_y],
             mode="markers+text",
-            marker=dict(size=18, symbol="diamond"),
+            marker=dict(size=18, symbol="square", color="royalblue"),
             text=["Nodo FTTN\n(FOSC+ONU)"],
             textposition="bottom center",
             showlegend=False
@@ -260,7 +260,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # 3 switches a la derecha
+        # 3 switches a la derecha (cuadrados verdes)
         sw_positions = [
             (0.3, 0.8),
             (0.3, 0.5),
@@ -281,7 +281,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 x=[sx],
                 y=[sy],
                 mode="markers+text",
-                marker=dict(size=16, symbol="square"),
+                marker=dict(size=16, symbol="square", color="green"),
                 text=[f"Sw {i}"],
                 textposition="bottom center",
                 showlegend=False
@@ -301,7 +301,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                     x=[cx],
                     y=[cy],
                     mode="markers+text",
-                    marker=dict(size=12),
+                    marker=dict(size=12, symbol="circle"),
                     text=[f"Cam {i}.{j}"],
                     textposition="top center",
                     showlegend=False
@@ -330,6 +330,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     Mapa de ejemplo en la ciudad de Mendoza (P2P) usando:
     - OSMnx para obtener la red vial real y calcular rutas por las calles.
     - Folium + CartoDB Dark Matter como fondo (calles sobre fondo oscuro).
+    - Rutas de FO sin compartir tramos (edge-disjoint) entre switches de campo.
     """
 
     # Centro aproximado de Mendoza
@@ -343,6 +344,9 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
         network_type="drive"
     )
 
+    # Creamos una copia para ir "gastando" edges y lograr caminos distintos
+    G_work = G.copy()
+
     # Mapa base: fondo negro con calles claras (simple)
     m = folium.Map(
         location=[center_lat, center_lon],
@@ -351,20 +355,21 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     )
 
     # Nodos lógicos de nuestra red CCTV
+    # Nota: CORE y Sw 8P están en la misma zona (datacenter), dentro del recuadro punteado
     nodes = [
         {
             "name": "CORE / NVR",
             "type": "CORE",
-            "lat": center_lat,
-            "lon": center_lon,
-            "descripcion": "Datacenter / Municipalidad (Microcentro)",
+            "lat": center_lat + 0.0003,
+            "lon": center_lon - 0.0003,
+            "descripcion": "NVR dentro del Datacenter",
         },
         {
             "name": "Sw 8P ópticas (Sala Técnica)",
             "type": "SW_CORE",
-            "lat": center_lat + 0.0003,
-            "lon": center_lon + 0.0003,
-            "descripcion": "Switch de distribución óptica principal",
+            "lat": center_lat,
+            "lon": center_lon,
+            "descripcion": "Switch de distribución óptica principal dentro del Datacenter",
         },
         {
             "name": "Sw Campo A — Plaza Independencia",
@@ -391,6 +396,21 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
 
     df_nodes = pd.DataFrame(nodes)
 
+    # Dibujamos el rectángulo punteado del DATACENTER alrededor del CORE / Sw 8P
+    dc_delta_lat = 0.001
+    dc_delta_lon = 0.0012
+    folium.Rectangle(
+        bounds=[
+            [center_lat - dc_delta_lat, center_lon - dc_delta_lon],
+            [center_lat + dc_delta_lat, center_lon + dc_delta_lon],
+        ],
+        color="white",
+        weight=2,
+        dash_array="5,5",
+        fill=False,
+        tooltip="DATACENTER (CORE / NVR + Sw 8P)",
+    ).add_to(m)
+
     # Colores por tipo (todos brillantes para fondo negro)
     def node_color(t):
         if t == "CORE":
@@ -401,32 +421,58 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             return "lime"
         return "white"
 
-    # Marcadores de nodos
+    # Marcadores de nodos:
+    # - CORE: círculo
+    # - SW_CORE y SW_CAMPO: cuadrados
     for _, row in df_nodes.iterrows():
-        folium.CircleMarker(
-            location=[row["lat"], row["lon"]],
-            radius=7,
-            color=node_color(row["type"]),
-            fill=True,
-            fill_color=node_color(row["type"]),
-            fill_opacity=0.9,
-            popup=f"{row['name']}<br>{row['descripcion']}",
-            tooltip=row["name"],
-        ).add_to(m)
+        if row["type"] == "CORE":
+            # NVR / CORE círculo rojo
+            folium.CircleMarker(
+                location=[row["lat"], row["lon"]],
+                radius=7,
+                color=node_color(row["type"]),
+                fill=True,
+                fill_color=node_color(row["type"]),
+                fill_opacity=0.9,
+                popup=f"{row['name']}<br>{row['descripcion']}",
+                tooltip=row["name"],
+            ).add_to(m)
+        else:
+            # Switches cuadrados (RegularPolygonMarker con 4 lados)
+            folium.RegularPolygonMarker(
+                location=[row["lat"], row["lon"]],
+                number_of_sides=4,
+                radius=7,
+                color=node_color(row["type"]),
+                fill=True,
+                fill_color=node_color(row["type"]),
+                fill_opacity=0.9,
+                popup=f"{row['name']}<br>{row['descripcion']}",
+                tooltip=row["name"],
+            ).add_to(m)
 
-    # Helper para dibujar ruta real por calles
-    def add_route_by_street(map_obj, G, lat0, lon0, lat1, lon1, tooltip: str):
+    # Helper para dibujar ruta real por calles y "gastar" los edges usados
+    def add_route_by_street(map_obj, G_work, lat0, lon0, lat1, lon1, tooltip: str):
         """
         Calcula la ruta más corta por la red vial entre (lat0, lon0) y (lat1, lon1)
         y la dibuja en el mapa. La polilínea se extiende hasta el punto exacto
         de origen y destino (CORE / Sw).
-        """
-        # nearest_nodes espera X=lon, Y=lat
-        orig_node = ox.distance.nearest_nodes(G, X=lon0, Y=lat0)
-        dest_node = ox.distance.nearest_nodes(G, X=lon1, Y=lat1)
 
-        route = nx.shortest_path(G, orig_node, dest_node, weight="length")
-        route_coords = [(G.nodes[n]["y"], G.nodes[n]["x"]) for n in route]
+        Además, elimina del grafo de trabajo los edges usados en esta ruta,
+        para que las siguientes rutas no compartan tramos (edge-disjoint).
+        """
+        try:
+            # nearest_nodes espera X=lon, Y=lat
+            orig_node = ox.distance.nearest_nodes(G_work, X=lon0, Y=lat0)
+            dest_node = ox.distance.nearest_nodes(G_work, X=lon1, Y=lat1)
+
+            route = nx.shortest_path(G_work, orig_node, dest_node, weight="length")
+        except nx.NetworkXNoPath:
+            # Si no encuentra camino, no dibuja nada
+            return
+
+        # Coordenadas de la ruta sobre calles
+        route_coords = [(G_work.nodes[n]["y"], G_work.nodes[n]["x"]) for n in route]
 
         # Aseguramos que la línea empieza y termina en los equipos
         route_coords.insert(0, (lat0, lon0))      # origen exacto
@@ -439,8 +485,16 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             tooltip=tooltip,
         ).add_to(map_obj)
 
+        # "Gastamos" los edges del camino para que el próximo no los use
+        # (evitamos compartir tramos entre diferentes rutas)
+        for u, v in zip(route, route[1:]):
+            if G_work.has_edge(u, v):
+                G_work.remove_edge(u, v)
+            if G_work.has_edge(v, u):
+                G_work.remove_edge(v, u)
+
     # Recuperamos nodos clave
-    core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]
+    core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]      # no se usa para ruteo, solo visual
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
     sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
 
@@ -453,10 +507,11 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     ).add_to(m)
 
     # Sw 8P → cada Sw de campo, siguiendo calles y terminando en el SW
+    # Las rutas se calculan sobre G_work, que vamos modificando
     for _, row in sw_campo.iterrows():
         add_route_by_street(
             m,
-            G,
+            G_work,
             sw_core["lat"],
             sw_core["lon"],
             row["lat"],
@@ -522,9 +577,9 @@ with tab_p2p:
     st.markdown("""
 En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
 
-- **CORE / NVR** en el Microcentro (datacenter / edificio municipal).
-- Un **switch de 8 puertos ópticos** en la misma sala técnica.
-- Tres **switches de campo**, todos a menos de ~1 km del CORE:
+- **CORE / NVR** (círculo rojo) dentro de un **Datacenter**.
+- Un **switch de 8 puertos ópticos** (cuadrado naranja) en la misma sala técnica.
+- Tres **switches de campo** (cuadrados verdes), todos a menos de ~1 km del CORE:
   - `Sw Campo A — Plaza Independencia`
   - `Sw Campo B — Parque Central`
   - `Sw Campo C — Terminal de Ómnibus`
@@ -533,6 +588,10 @@ Las líneas representan los **enlaces de fibra**:
 - CORE → Sw 8P (intra-edificio).
 - Sw 8P → cada switch de campo (FO urbana), siguiendo rutas reales por las calles
   según la red vial de OpenStreetMap, con fondo oscuro simplificado.
+
+Además, cada ruta hacia un switch de campo toma **un recorrido distinto**,
+evitando compartir tramos entre sí, para poder discutir diferentes alternativas
+de tendido.
 """)
 
     m = build_mendoza_p2p_map_osmnx()
@@ -542,9 +601,11 @@ Las líneas representan los **enlaces de fibra**:
 **Actividad sugerida para los alumnos:**
 
 - Identificar sobre el mapa:
-  - Dónde está el **CORE** y el **switch de 8P**.
+  - Dónde está el **Datacenter** (recuadro punteado).
+  - Dónde está el **CORE / NVR** y el **Sw 8P** dentro del Datacenter.
   - La ubicación de cada **switch de campo** (plaza, parque, terminal).
-- Analizar por qué el algoritmo eligió ese recorrido por calles (mínima distancia).
+- Analizar por qué el algoritmo eligió ese recorrido por calles (mínima distancia
+  con la restricción de no reutilizar tramos).
 - Discutir por dónde **realmente canalizarías** la fibra (postes, ductos, vereda, etc.)
   y si cambiarías el recorrido.
 """)
