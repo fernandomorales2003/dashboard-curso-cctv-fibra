@@ -1,10 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import zipfile
-from xml.etree import ElementTree as ET
-import unicodedata
-import pydeck as pdk
 import plotly.graph_objects as go
 
 # =========================================
@@ -41,61 +37,117 @@ def create_topology_diagram(topology: str) -> go.Figure:
     """
     topo = topology.lower()
 
+    # -------------------------------
+    # PUNTO A PUNTO (con switches de campo)
+    # -------------------------------
     if topo == "p2p":
-        # Nodo central + cámaras alrededor
-        core_x, core_y = 0.0, 0.5
-        cam_positions = [
-            (-0.6, 0.9),
-            (-0.8, 0.4),
-            (-0.5, 0.0),
-            (0.5, 0.9),
-            (0.8, 0.4),
-            (0.5, 0.0),
-        ]
-
         fig = go.Figure()
 
-        # Enlaces (líneas) desde el CORE a cada cámara
-        for i, (x, y) in enumerate(cam_positions, start=1):
-            fig.add_trace(go.Scatter(
-                x=[core_x, x],
-                y=[core_y, y],
-                mode="lines",
-                line=dict(width=2),
-                showlegend=False
-            ))
-            fig.add_trace(go.Scatter(
-                x=[x],
-                y=[y],
-                mode="markers+text",
-                marker=dict(size=14),
-                text=[f"Cam {i}"],
-                textposition="top center",
-                showlegend=False
-            ))
-
-        # CORE
+        # CORE a la izquierda
+        core_x, core_y = -0.9, 0.5
         fig.add_trace(go.Scatter(
             x=[core_x],
             y=[core_y],
             mode="markers+text",
-            marker=dict(size=18, symbol="square"),
+            marker=dict(size=22, symbol="square"),
             text=["CORE / NVR"],
             textposition="bottom center",
             showlegend=False
         ))
 
+        # Switch óptico de 8 bocas (switch central)
+        sw_core_x, sw_core_y = -0.3, 0.5
+        fig.add_trace(go.Scatter(
+            x=[sw_core_x],
+            y=[sw_core_y],
+            mode="markers+text",
+            marker=dict(size=20, symbol="hexagon"),
+            text=["Sw 8P ópticas"],
+            textposition="bottom center",
+            showlegend=False
+        ))
+
+        # Enlace CORE → Sw 8P
+        fig.add_trace(go.Scatter(
+            x=[core_x, sw_core_x],
+            y=[core_y, sw_core_y],
+            mode="lines",
+            line=dict(width=3),
+            showlegend=False
+        ))
+
+        # Switches de campo (1 entrada óptica, varias salidas eléctricas)
+        field_switches = [
+            {"name": "Sw Campo A", "x": 0.3, "y": 0.8},
+            {"name": "Sw Campo B", "x": 0.3, "y": 0.5},
+            {"name": "Sw Campo C", "x": 0.3, "y": 0.2},
+        ]
+
+        cam_index = 1
+
+        for fs in field_switches:
+            sx, sy = fs["x"], fs["y"]
+
+            # Fibra óptica Sw 8P → Sw Campo
+            fig.add_trace(go.Scatter(
+                x=[sw_core_x, sx],
+                y=[sw_core_y, sy],
+                mode="lines",
+                line=dict(width=2),
+                showlegend=False
+            ))
+
+            # Switch de campo
+            fig.add_trace(go.Scatter(
+                x=[sx],
+                y=[sy],
+                mode="markers+text",
+                marker=dict(size=18, symbol="square"),
+                text=[fs["name"]],
+                textposition="bottom center",
+                showlegend=False
+            ))
+
+            # Desde cada Sw de campo, 2 cámaras (UTP eléctrico)
+            cam_positions = [
+                (sx + 0.35, sy + 0.12),
+                (sx + 0.35, sy - 0.12),
+            ]
+            for (cx, cy) in cam_positions:
+                # Enlace eléctrico (UTP)
+                fig.add_trace(go.Scatter(
+                    x=[sx, cx],
+                    y=[sy, cy],
+                    mode="lines",
+                    line=dict(width=1.8, dash="dot"),
+                    showlegend=False
+                ))
+                # Cámara
+                fig.add_trace(go.Scatter(
+                    x=[cx],
+                    y=[cy],
+                    mode="markers+text",
+                    marker=dict(size=12, symbol="circle"),
+                    text=[f"Cam {cam_index}"],
+                    textposition="top center",
+                    showlegend=False
+                ))
+                cam_index += 1
+
         fig.update_layout(
-            title="Topología Punto a Punto (P2P)",
+            title="Topología Punto a Punto (CORE → Sw óptico → Sw de campo → Cámaras)",
             xaxis=dict(visible=False),
             yaxis=dict(visible=False),
             plot_bgcolor="white",
-            margin=dict(l=20, r=20, t=40, b=20),
-            height=350
+            margin=dict(l=20, r=20, t=60, b=20),
+            height=400
         )
         fig.update_yaxes(scaleanchor="x", scaleratio=1)
         return fig
 
+    # -------------------------------
+    # ANILLO
+    # -------------------------------
     if topo == "ring":
         # 6 switches en círculo
         n = 6
@@ -158,12 +210,15 @@ def create_topology_diagram(topology: str) -> go.Figure:
             xaxis=dict(visible=False),
             yaxis=dict(visible=False),
             plot_bgcolor="white",
-            margin=dict(l=20, r=20, t=40, b=20),
-            height=350
+            margin=dict(l=20, r=20, t=60, b=20),
+            height=400
         )
         fig.update_yaxes(scaleanchor="x", scaleratio=1)
         return fig
 
+    # -------------------------------
+    # FTTN
+    # -------------------------------
     if topo == "fttn":
         fig = go.Figure()
 
@@ -208,7 +263,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
         ]
 
         for i, (sx, sy) in enumerate(sw_positions, start=1):
-            # Enlace nodo → switch
+            # Enlace nodo → switch (fibra)
             fig.add_trace(go.Scatter(
                 x=[node_x, sx],
                 y=[node_y, sy],
@@ -226,7 +281,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 textposition="bottom center",
                 showlegend=False
             ))
-            # 2 cámaras colgando de cada switch
+            # 2 cámaras colgando de cada switch (UTP corto)
             cam1 = (sx + 0.3, sy + 0.15)
             cam2 = (sx + 0.3, sy - 0.15)
             for j, (cx, cy) in enumerate([cam1, cam2], start=1):
@@ -234,7 +289,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                     x=[sx, cx],
                     y=[sy, cy],
                     mode="lines",
-                    line=dict(width=1.5),
+                    line=dict(width=1.5, dash="dot"),
                     showlegend=False
                 ))
                 fig.add_trace(go.Scatter(
@@ -252,251 +307,14 @@ def create_topology_diagram(topology: str) -> go.Figure:
             xaxis=dict(visible=False),
             yaxis=dict(visible=False),
             plot_bgcolor="white",
-            margin=dict(l=20, r=20, t=40, b=20),
-            height=350
+            margin=dict(l=20, r=20, t=60, b=20),
+            height=400
         )
         fig.update_yaxes(scaleanchor="x", scaleratio=1)
         return fig
 
-    # Fallback si algo raro se pasa
+    # Fallback
     return go.Figure()
-
-
-# =========================================
-# FUNCIONES AUXILIARES PARA EL KMZ
-# =========================================
-def strip_accents(s: str) -> str:
-    if s is None:
-        return ""
-    return ''.join(
-        c for c in unicodedata.normalize('NFD', s)
-        if unicodedata.category(c) != 'Mn'
-    )
-
-
-def parse_kmz_points_lines(kmz_file) -> pd.DataFrame:
-    """
-    Convierte un KMZ de CCTV (como 'CCTV-IP FTTN.kmz') en un DataFrame
-    con puntos para:
-      - Fibra (puntos de las LineString)
-      - Cámaras
-      - Switches
-      - UTP
-      - Nodos FTTN (FOSC + divisor + ONU)
-    """
-    # Aseguramos que está al inicio
-    kmz_file.seek(0)
-
-    # Abrimos el ZIP y buscamos el primer .kml
-    with zipfile.ZipFile(kmz_file) as z:
-        kml_name = next(
-            name for name in z.namelist()
-            if name.lower().endswith(".kml")
-        )
-        kml_data = z.read(kml_name)
-
-    # Parseamos el XML (KML)
-    ns = {'k': 'http://www.opengis.net/kml/2.2'}
-    root = ET.fromstring(kml_data)
-    doc = root.find('k:Document', ns)
-
-    rows = []
-
-    def traverse_folder(folder, parent_path=""):
-        name_el = folder.find('k:name', ns)
-        folder_name = name_el.text.strip() if (name_el is not None and name_el.text) else ""
-        path = f"{parent_path}/{folder_name}" if parent_path else folder_name
-
-        # Placemark dentro de esta carpeta
-        for pm in folder.findall('k:Placemark', ns):
-            pm_name_el = pm.find('k:name', ns)
-            pm_name = pm_name_el.text.strip() if (pm_name_el is not None and pm_name_el.text) else ""
-
-            desc_el = pm.find('k:description', ns)
-            desc = desc_el.text.strip() if (desc_el is not None and desc_el.text) else ""
-
-            # --- POINT ---
-            point_el = pm.find('.//k:Point/k:coordinates', ns)
-            if point_el is not None and point_el.text:
-                coord_text = point_el.text.strip()
-                lon, lat, *_ = [float(x) for x in coord_text.split(',')]
-                rows.append({
-                    "name": pm_name,
-                    "folder_path": path,
-                    "geom_type": "Point",
-                    "lon": lon,
-                    "lat": lat,
-                    "description": desc,
-                    "segment_index": None,
-                })
-
-            # --- LINESTRING (ruta de fibra) ---
-            line_el = pm.find('.//k:LineString/k:coordinates', ns)
-            if line_el is not None and line_el.text:
-                coords = line_el.text.strip().split()
-                for idx, coord in enumerate(coords):
-                    lon, lat, *_ = [float(x) for x in coord.split(',')]
-                    rows.append({
-                        "name": pm_name or "LineString",
-                        "folder_path": path,
-                        "geom_type": "LineStringPoint",
-                        "lon": lon,
-                        "lat": lat,
-                        "description": desc,
-                        "segment_index": idx,
-                    })
-
-        # Subcarpetas
-        for sub in folder.findall('k:Folder', ns):
-            traverse_folder(sub, path)
-
-    # Recorremos las carpetas top-level
-    if doc is None:
-        return pd.DataFrame()
-
-    for folder in doc.findall('k:Folder', ns):
-        traverse_folder(folder)
-
-    df = pd.DataFrame(rows)
-
-    if df.empty:
-        return df
-
-    # --- Categorización por carpeta / nombre ---
-    def categorize(row):
-        fp_raw = row.get("folder_path", "") or ""
-        fp = strip_accents(fp_raw.lower())
-        name = strip_accents((row.get("name", "") or "").lower())
-
-        if "fibra" in fp:
-            return "Fibra"
-        if "fosc" in fp or "divisor" in fp or "onu" in fp:
-            return "Nodo FTTN"
-        if "camaras" in fp or name.startswith("c "):
-            return "Camara"
-        if "switch" in fp or name.startswith("s "):
-            return "Switch"
-        if "utp" in fp:
-            return "UTP"
-        return "Otro"
-
-    df["category"] = df.apply(categorize, axis=1)
-
-    # Zona interna / externa en base al path original
-    def get_zone(path: str) -> str:
-        path = path or ""
-        if "Poligono interno" in path:
-            return "Poligono interno"
-        if "Polig externo" in path:
-            return "Poligono externo"
-        return ""
-
-    df["zone"] = df["folder_path"].apply(get_zone)
-
-    # Cadena 1/2/3/4
-    def get_cadena(path: str) -> str:
-        path = path or ""
-        for i in range(1, 5):
-            if f"Cadena {i}" in path:
-                return f"Cadena {i}"
-        return ""
-
-    df["cadena"] = df["folder_path"].apply(get_cadena)
-
-    return df
-
-
-def build_pydeck_map(df: pd.DataFrame) -> pdk.Deck:
-    """
-    Construye un objeto pydeck.Deck con:
-      - PathLayer para fibra
-      - ScatterLayer para cámaras, switches, nodos FTTN, UTP
-    """
-    if df.empty:
-        return pdk.Deck()
-
-    # Vista inicial centrada en el promedio
-    mean_lat = df["lat"].mean()
-    mean_lon = df["lon"].mean()
-
-    view_state = pdk.ViewState(
-        latitude=mean_lat,
-        longitude=mean_lon,
-        zoom=16,
-        pitch=45,
-        bearing=0,
-    )
-
-    layers = []
-
-    # ---------------------------
-    # LÍNEAS DE FIBRA (PathLayer)
-    # ---------------------------
-    df_fibra_pts = df[(df["category"] == "Fibra") & (df["geom_type"] == "LineStringPoint")].copy()
-    if not df_fibra_pts.empty:
-        # Agrupamos por nombre+cadena para formar las rutas
-        df_paths = (
-            df_fibra_pts
-            .sort_values(["name", "cadena", "segment_index"])
-            .groupby(["name", "cadena"], dropna=False)
-            .apply(lambda g: g[["lon", "lat"]].values.tolist())
-            .reset_index(name="path")
-        )
-
-        fiber_layer = pdk.Layer(
-            "PathLayer",
-            df_paths,
-            get_path="path",
-            get_color=[0, 0, 0],  # negro
-            width_scale=2,
-            width_min_pixels=2,
-            get_width=4,
-        )
-        layers.append(fiber_layer)
-
-    # ---------------------------
-    # PUNTOS: cámaras, switches, nodos, UTP
-    # ---------------------------
-    def add_scatter_layer(df_cat, color, radius=5):
-        if df_cat.empty:
-            return None
-        return pdk.Layer(
-            "ScatterplotLayer",
-            df_cat,
-            get_position=["lon", "lat"],
-            get_fill_color=color,
-            get_radius=radius,
-            pickable=True,
-        )
-
-    df_points = df[df["geom_type"] == "Point"].copy()
-
-    df_cams = df_points[df_points["category"] == "Camara"]
-    df_switch = df_points[df_points["category"] == "Switch"]
-    df_nodos = df_points[df_points["category"] == "Nodo FTTN"]
-    df_utp = df_points[df_points["category"] == "UTP"]
-
-    layer_cams = add_scatter_layer(df_cams, [0, 128, 255], radius=8)      # azul
-    layer_switch = add_scatter_layer(df_switch, [255, 165, 0], radius=8)  # naranja
-    layer_nodos = add_scatter_layer(df_nodos, [0, 200, 0], radius=9)      # verde
-    layer_utp = add_scatter_layer(df_utp, [150, 150, 150], radius=5)      # gris
-
-    for lyr in [layer_cams, layer_switch, layer_nodos, layer_utp]:
-        if lyr is not None:
-            layers.append(lyr)
-
-    tooltip = {
-        "html": "<b>{name}</b><br/>Tipo: {category}<br/>Zona: {zone}<br/>Cadena: {cadena}",
-        "style": {"backgroundColor": "white", "color": "black"}
-    }
-
-    deck = pdk.Deck(
-        map_style="mapbox://styles/mapbox/light-v9",
-        initial_view_state=view_state,
-        layers=layers,
-        tooltip=tooltip,
-    )
-    return deck
 
 
 # =========================================
@@ -514,30 +332,115 @@ with tab_p2p:
 
     col1, col2 = st.columns([2, 1], gap="large")
 
+    # ---------------------------------
+    # ESQUEMA LÓGICO + DIAGRAMA
+    # ---------------------------------
     with col1:
-        st.markdown("### Esquema lógico P2P")
+        st.markdown("### Esquema lógico P2P (con switches de campo)")
         st.info(
-            "Diagrama tipo **estrella**, donde desde el NVR/CORE salen enlaces directos "
-            "de fibra hacia cada cámara o hacia pequeños switches remotos."
+            "CORE / NVR → Switch de 8 bocas ópticas → Fibra a switches de campo "
+            "con 1 entrada óptica y varias salidas eléctricas → Cámaras por UTP."
         )
-        st.markdown("**Idea visual:**")
-        st.markdown("- Centro: NVR / Core")
-        st.markdown("- Ramas: enlaces directos de fibra hacia cada punto remoto")
-        st.markdown("- Últimos metros: UTP hacia la cámara (si aplica)")
+        st.markdown("**Flujo básico:**")
+        st.markdown("- El CORE concentra el grabador / NVR y routing principal.")
+        st.markdown("- Un switch con **8 puertos ópticos** distribuye la troncal.")
+        st.markdown("- Cada puerto óptico alimenta un **switch de campo**.")
+        st.markdown("- Desde cada switch de campo salen **2 o más cámaras** por UTP.")
 
         fig_p2p = create_topology_diagram("p2p")
         st.plotly_chart(fig_p2p, use_container_width=True)
 
     with col2:
         st.markdown("### Indicadores P2P (ejemplo)")
-        st.metric("Total de cámaras", 32)
-        st.metric("Fibra total estimada (m)", 4200)
-        st.metric("N° de enlaces directos", 32)
+        st.metric("Total de cámaras", 12)
+        st.metric("Puertos ópticos en CORE", 8)
+        st.metric("Switches de campo", 3)
 
         st.markdown("#### Ventajas / Desventajas")
-        st.success("✔ Arquitectura simple, fácil de entender")
-        st.warning("✖ Mayor consumo de fibra y puertos en el core")
-        st.warning("✖ Escalabilidad limitada en grandes sitios")
+        st.success("✔ Arquitectura intuitiva (CORE → distribución → campo).")
+        st.success("✔ Permite agrupar varias cámaras en un mismo punto de FO.")
+        st.warning("✖ Sigue consumiendo varios puertos ópticos en el CORE.")
+        st.warning("✖ Si falla un switch de campo, caen todas las cámaras de ese punto.")
+
+    st.markdown("---")
+
+    # ---------------------------------
+    # EJEMPLO REAL — CIUDAD DE MENDOZA
+    # ---------------------------------
+    st.markdown("## Ejemplo real — Ciudad de Mendoza (P2P)")
+
+    st.markdown("""
+Imaginemos un diseño real en **Mendoza capital** para monitoreo urbano:
+
+- El **CORE / NVR** está en un datacenter del municipio en la zona de **Microcentro**.
+- Desde allí sale fibra hacia un **switch óptico de 8 bocas**.
+- Cada puerto óptico alimenta un **punto de distribución** en la ciudad: plazas y nodos estratégicos.
+- En cada punto de distribución hay un **switch de campo** (1 entrada óptica, varias salidas eléctricas) 
+  que alimenta 2–4 cámaras IP con tramos cortos de UTP.
+""")
+
+    data_mza_p2p = {
+        "Punto": [
+            "CORE / NVR",
+            "Sw 8P ópticas (Sala Técnica)",
+            "Sw Campo A — Plaza Independencia",
+            "Sw Campo B — Parque Central",
+            "Sw Campo C — Terminal de Ómnibus",
+        ],
+        "Ubicación aproximada": [
+            "Zona Microcentro (Municipalidad / Datacenter)",
+            "Mismo edificio CORE",
+            "Plaza Independencia (centro histórico)",
+            "Parque Central (zona norte ciudad)",
+            "Terminal de Ómnibus (acceso este)",
+        ],
+        "Rol en la red": [
+            "Procesamiento, grabación y gestión",
+            "Distribución óptica principal (8 puertos FO)",
+            "Switch de campo (1 FO in, 4 UTP out)",
+            "Switch de campo (1 FO in, 3 UTP out)",
+            "Switch de campo (1 FO in, 3 UTP out)",
+        ],
+        "N° cámaras asociadas": [
+            "-",  # CORE
+            "-",  # Sw 8P
+            "4 cámaras perimetrales plaza",
+            "3 cámaras parque",
+            "3 cámaras andenes / accesos",
+        ],
+        "Distancia FO aprox. desde CORE": [
+            "—",
+            "10–20 m (intra-edificio)",
+            "800–1000 m",
+            "1200–1500 m",
+            "1500–1800 m",
+        ],
+        "Distancia típica UTP (cámara–switch)": [
+            "—",
+            "—",
+            "30–60 m",
+            "30–70 m",
+            "20–50 m",
+        ],
+    }
+
+    df_mza_p2p = pd.DataFrame(data_mza_p2p)
+    st.markdown("### Tabla de ejemplo — nodos y cámaras en Mendoza")
+    st.dataframe(df_mza_p2p, use_container_width=True)
+
+    st.markdown("""
+**Idea didáctica para el curso:**
+
+- Podés pedir a los alumnos que:
+  - Identifiquen cuáles enlaces son **FO** y cuáles son **UTP**.
+  - Estimen el **presupuesto óptico** desde el CORE hasta cada switch de campo.
+  - Verifiquen que las distancias de UTP cumplan con los límites de Ethernet.
+  - Propongan **dónde agregar redundancia** (por ejemplo, un segundo enlace FO a la Terminal).
+
+En los próximos pasos podemos armar ejemplos similares para:
+- 🔁 La topología en **Anillo** (por ejemplo, bordeando el centro y zona oeste).  
+- 🌿 La topología **FTTN**, usando nodos intermedios para barrios más alejados.
+""")
 
 # =========================================================
 # TAB 2 — ANILLO
@@ -554,9 +457,9 @@ with tab_ring:
             "desde los cuales salen derivaciones hacia las cámaras."
         )
         st.markdown("**Idea visual:**")
-        st.markdown("- Anillo de switches interconectados")
-        st.markdown("- Derivaciones (spurs) hacia cámaras o pequeños grupos")
-        st.markdown("- Soporta redundancia por camino alternativo")
+        st.markdown("- Anillo de switches interconectados (fibra).")
+        st.markdown("- Derivaciones hacia cámaras en cada nodo.")
+        st.markdown("- Soporta redundancia por camino alternativo ante cortes.")
 
         fig_ring = create_topology_diagram("ring")
         st.plotly_chart(fig_ring, use_container_width=True)
@@ -568,146 +471,51 @@ with tab_ring:
         st.metric("N° de switches en anillo", 6)
 
         st.markdown("#### Ventajas / Desventajas")
-        st.success("✔ Mejor redundancia ante cortes de fibra")
-        st.success("✔ Mejor uso de fibra que P2P en sitios grandes")
-        st.warning("✖ Mayor complejidad de diseño y configuración")
+        st.success("✔ Mejor redundancia ante cortes de fibra.")
+        st.success("✔ Buen equilibrio entre cantidad de fibra y cobertura.")
+        st.warning("✖ Mayor complejidad de diseño y configuración.")
+        st.warning("✖ Requiere protocolos de anillo (STP/RSTP, ERPS, etc.).")
+
+    st.markdown("---")
+    st.info("Más adelante podemos sumar un **ejemplo real de anillo en Mendoza** (por ejemplo, un anillo que una Microcentro, Parque Central, La Alameda y Terminal).")
 
 # =========================================================
-# TAB 3 — FTTN (CCTV-IP) — USANDO KMZ + PYDECK
+# TAB 3 — FTTN (conceptual)
 # =========================================================
 with tab_fttn:
-    st.subheader("Topología FTTN — CCTV-IP FTTN")
+    st.subheader("Topología FTTN — Concepto general")
 
-    st.markdown("""
-    Subí el archivo **KMZ** del diseño CCTV para visualizar:
-    - Las cadenas de fibra
-    - Los nodos FTTN (FOSC + divisores + ONU)
-    - Cámaras, switches y tramos UTP
-    """)
+    col1, col2 = st.columns([2, 1], gap="large")
 
-    kmz_file = st.file_uploader(
-        "📂 Subir archivo KMZ",
-        type=["kmz", "kml"],
-        help="Ejemplo: CCTV-IP FTTN.kmz"
-    )
+    with col1:
+        st.markdown("### Esquema lógico FTTN")
+        st.info(
+            "Fibra hasta un **Nodo FTTN** (FOSC + divisor + ONU / switch), "
+            "y desde allí distribución hacia varios puntos con UTP o FO secundaria."
+        )
+        st.markdown("**Flujo básico:**")
+        st.markdown("- CORE / NVR en un punto central (datacenter).")
+        st.markdown("- Fibra troncal hasta nodos FTTN estratégicos.")
+        st.markdown("- En cada nodo: elementos de acceso (ONU / switch).")
+        st.markdown("- Desde el nodo, cámaras cercanas por UTP o FO corta.")
 
-    if kmz_file is None:
-        st.info("Subí el archivo KMZ para ver el diseño FTTN.")
+        fig_fttn = create_topology_diagram("fttn")
+        st.plotly_chart(fig_fttn, use_container_width=True)
 
-        # Aun sin KMZ, mostramos el esquema lógico general
-        st.markdown("### Esquema lógico FTTN (general)")
-        fig_fttn_only = create_topology_diagram("fttn")
-        st.plotly_chart(fig_fttn_only, use_container_width=True)
-    else:
-        # Parseamos el KMZ → DataFrame
-        df_kmz = parse_kmz_points_lines(kmz_file)
+    with col2:
+        st.markdown("### Comentarios FTTN (ejemplo)")
+        st.metric("Nodos FTTN", 3)
+        st.metric("Cámaras promedio por nodo", 6)
+        st.metric("Cobertura típica desde nodo", "200–400 m")
 
-        if df_kmz.empty:
-            st.error("No se encontraron elementos en el KMZ.")
-        else:
-            st.success(f"Se cargaron {len(df_kmz)} puntos desde el KMZ.")
+        st.markdown("#### Ventajas / Desventajas")
+        st.success("✔ Reduce la cantidad de fibra troncal desde el CORE.")
+        st.success("✔ Permite escalar agregando nodos en nuevas zonas.")
+        st.warning("✖ Más elementos activos en campo (más puntos de falla).")
+        st.warning("✖ Requiere buen diseño de alimentación eléctrica y alojamiento.")
 
-            with st.expander("Ver muestra de datos parseados"):
-                st.dataframe(df_kmz.head(50), use_container_width=True)
-
-            # ==========================
-            # FILA 1 — MAPA (PYDECK) + ESQUEMA / KPIs
-            # ==========================
-            col_map, col_scheme = st.columns([2, 1], gap="large")
-
-            with col_map:
-                st.markdown("### Mapa del sitio (KMZ)")
-
-                col_l1, col_l2 = st.columns(2)
-                with col_l1:
-                    show_fibra = st.checkbox("Fibra (trazado)", value=True)
-                    show_nodos = st.checkbox("Nodos FTTN (FOSC/ONU)", value=True)
-                    show_cams = st.checkbox("Cámaras", value=True)
-                with col_l2:
-                    show_switch = st.checkbox("Switches", value=True)
-                    show_utp = st.checkbox("Tramos UTP (puntos)", value=True)
-
-                # Filtramos según checkboxes
-                df_filtered = df_kmz.copy()
-                if not show_fibra:
-                    df_filtered = df_filtered[df_filtered["category"] != "Fibra"]
-                if not show_nodos:
-                    df_filtered = df_filtered[df_filtered["category"] != "Nodo FTTN"]
-                if not show_cams:
-                    df_filtered = df_filtered[df_filtered["category"] != "Camara"]
-                if not show_switch:
-                    df_filtered = df_filtered[df_filtered["category"] != "Switch"]
-                if not show_utp:
-                    df_filtered = df_filtered[df_filtered["category"] != "UTP"]
-
-                st.caption("Mapa interactivo con pydeck (fibra + nodos + cámaras + switches + UTP).")
-                deck = build_pydeck_map(df_filtered)
-                st.pydeck_chart(deck)
-
-            with col_scheme:
-                st.markdown("### Esquema lógico FTTN")
-
-                fig_fttn = create_topology_diagram("fttn")
-                st.plotly_chart(fig_fttn, use_container_width=True)
-
-                # KPIs básicos desde el KMZ
-                total_cams = int((df_kmz["category"] == "Camara").sum())
-                cams_int = int(((df_kmz["category"] == "Camara") &
-                                (df_kmz["zone"] == "Poligono interno")).sum())
-                cams_ext = int(((df_kmz["category"] == "Camara") &
-                                (df_kmz["zone"] == "Poligono externo")).sum())
-
-                total_switch = int((df_kmz["category"] == "Switch").sum())
-                total_utp = int((df_kmz["category"] == "UTP").sum())
-                total_nodos = int((df_kmz["category"] == "Nodo FTTN").sum())
-
-                st.metric("Total cámaras", total_cams)
-                st.metric("Cámaras internas", cams_int)
-                st.metric("Cámaras externas", cams_ext)
-                st.metric("Nodos FTTN (FOSC/ONU)", total_nodos)
-
-                st.markdown("#### Otros elementos")
-                st.write(f"- Switches totales: **{total_switch}**")
-                st.write(f"- Puntos UTP (segmentos): **{total_utp}**")
-
-            st.markdown("---")
-
-            # ==========================
-            # FILA 2 — RESUMEN POR ZONA
-            # ==========================
-            st.markdown("### Resumen por zona")
-
-            col_z1, col_z2, col_z3 = st.columns(3)
-
-            with col_z1:
-                st.markdown("#### Cámaras por zona")
-                cams_by_zone = (
-                    df_kmz[df_kmz["category"] == "Camara"]["zone"]
-                    .value_counts()
-                    .rename_axis("Zona")
-                    .reset_index(name="Cámaras")
-                )
-                st.dataframe(cams_by_zone, use_container_width=True)
-
-            with col_z2:
-                st.markdown("#### Switches por zona")
-                sw_by_zone = (
-                    df_kmz[df_kmz["category"] == "Switch"]["zone"]
-                    .value_counts()
-                    .rename_axis("Zona")
-                    .reset_index(name="Switches")
-                )
-                st.dataframe(sw_by_zone, use_container_width=True)
-
-            with col_z3:
-                st.markdown("#### UTP por zona")
-                utp_by_zone = (
-                    df_kmz[df_kmz["category"] == "UTP"]["zone"]
-                    .value_counts()
-                    .rename_axis("Zona")
-                    .reset_index(name="Puntos UTP")
-                )
-                st.dataframe(utp_by_zone, use_container_width=True)
+    st.markdown("---")
+    st.info("Luego podemos agregar un **caso real FTTN en Mendoza**, por ejemplo nodos en barrios periféricos con varias cámaras por nodo.")
 
 # =========================================================
 # TAB 4 — COMPARATIVO GLOBAL
@@ -722,12 +530,12 @@ with tab_comp:
 
     data_comp = {
         "Topología": ["Punto a Punto", "Anillo", "FTTN"],
-        "Cámaras (ej.)": [32, 32, 32],
-        "Fibra total (m, ej.)": [4200, 3100, 2600],
-        "Redundancia": ["Baja", "Alta", "Media"],
-        "Complejidad diseño": ["Baja", "Media", "Media/Alta"],
-        "Costo relativo": ["Alto", "Medio", "Medio/Bajo"],
-        "Escalabilidad": ["Baja", "Media", "Alta"],
+        "Cámaras (ej.)": [12, 32, 18],
+        "Fibra total (m, ej.)": [3500, 3100, 2600],
+        "Redundancia": ["Baja/Media", "Alta", "Media"],
+        "Complejidad diseño": ["Baja/Media", "Media/Alta", "Media"],
+        "Costo relativo": ["Medio/Alto", "Medio", "Medio/Bajo"],
+        "Escalabilidad": ["Media", "Media", "Alta"],
     }
 
     df_comp = pd.DataFrame(data_comp)
@@ -736,6 +544,6 @@ with tab_comp:
     st.dataframe(df_comp, use_container_width=True)
 
     st.markdown("### Disparadores para la discusión en clase")
-    st.markdown("- ¿En qué tipo de sitio conviene P2P? (pocos puntos, distancias cortas).")
-    st.markdown("- ¿Cuándo justifica un anillo? (misión crítica, alta disponibilidad).")
-    st.markdown("- ¿Cuándo FTTN equilibra costo, escalabilidad y mantenimiento en CCTV?")
+    st.markdown("- ¿En qué tipo de sitio conviene P2P con switches de campo? (ej: pocos nodos bien concentrados).")
+    st.markdown("- ¿Cuándo justifica un anillo? (ej: corredores críticos y necesidad de alta disponibilidad).")
+    st.markdown("- ¿Cuándo FTTN equilibra costo, escalabilidad y mantenimiento en CCTV urbano?")
