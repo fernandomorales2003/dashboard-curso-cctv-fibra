@@ -329,44 +329,26 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     """
     Mapa de ejemplo en la ciudad de Mendoza (P2P) usando:
     - OSMnx para obtener la red vial real y calcular rutas por las calles.
-    - Folium + OpenStreetMap para mostrar el mapa.
+    - Folium + CartoDB Dark Matter como fondo (calles sobre fondo oscuro).
     """
 
     # Centro aproximado de Mendoza
     center_lat = -32.8895
     center_lon = -68.8458
 
-    # Grafo de calles en un radio de ~2 km
+    # Grafo de calles en un radio de ~2 km (solo para ruteo)
     G = ox.graph_from_point(
         (center_lat, center_lon),
         dist=2000,
         network_type="drive"
     )
 
-    # Mapa base
+    # Mapa base: fondo negro con calles claras (simple)
     m = folium.Map(
         location=[center_lat, center_lon],
         zoom_start=14,
-        tiles="OpenStreetMap",
+        tiles="CartoDB dark_matter",
     )
-
-    # Dibujar TODAS las calles del grafo en gris
-    for u, v, data in G.edges(data=True):
-        geom = data.get("geometry", None)
-        if geom is not None:
-            xs, ys = geom.xy          # x = lon, y = lat
-            coords = list(zip(ys, xs))  # (lat, lon)
-        else:
-            y1, x1 = G.nodes[u]["y"], G.nodes[u]["x"]
-            y2, x2 = G.nodes[v]["y"], G.nodes[v]["x"]
-            coords = [(y1, x1), (y2, x2)]
-
-        folium.PolyLine(
-            locations=coords,
-            color="#bbbbbb",
-            weight=1,
-            opacity=0.6,
-        ).add_to(m)
 
     # Nodos lógicos de nuestra red CCTV
     nodes = [
@@ -409,15 +391,15 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
 
     df_nodes = pd.DataFrame(nodes)
 
-    # Colores por tipo
+    # Colores por tipo (todos brillantes para fondo negro)
     def node_color(t):
         if t == "CORE":
-            return "black"
+            return "red"
         if t == "SW_CORE":
-            return "blue"
+            return "orange"
         if t == "SW_CAMPO":
-            return "green"
-        return "gray"
+            return "lime"
+        return "white"
 
     # Marcadores de nodos
     for _, row in df_nodes.iterrows():
@@ -436,8 +418,8 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     def add_route_by_street(map_obj, G, lat0, lon0, lat1, lon1, tooltip: str):
         """
         Calcula la ruta más corta por la red vial entre (lat0, lon0) y (lat1, lon1)
-        y la dibuja en el mapa.
-        nearest_nodes usa scikit-learn como dependencia opcional.
+        y la dibuja en el mapa. La polilínea se extiende hasta el punto exacto
+        de origen y destino (CORE / Sw).
         """
         # nearest_nodes espera X=lon, Y=lat
         orig_node = ox.distance.nearest_nodes(G, X=lon0, Y=lat0)
@@ -446,9 +428,13 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
         route = nx.shortest_path(G, orig_node, dest_node, weight="length")
         route_coords = [(G.nodes[n]["y"], G.nodes[n]["x"]) for n in route]
 
+        # Aseguramos que la línea empieza y termina en los equipos
+        route_coords.insert(0, (lat0, lon0))      # origen exacto
+        route_coords.append((lat1, lon1))         # destino exacto
+
         folium.PolyLine(
             locations=route_coords,
-            color="black",
+            color="white",   # fibra sobre fondo negro
             weight=3,
             tooltip=tooltip,
         ).add_to(map_obj)
@@ -458,15 +444,15 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
     sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
 
-    # CORE → Sw 8P (intra-edificio, recto)
+    # CORE → Sw 8P (intra-edificio, recto y blanco)
     folium.PolyLine(
         locations=[[core["lat"], core["lon"]], [sw_core["lat"], sw_core["lon"]]],
-        color="black",
+        color="white",
         weight=4,
         tooltip="FO CORE → Sw 8P",
     ).add_to(m)
 
-    # Sw 8P → cada Sw de campo, siguiendo calles
+    # Sw 8P → cada Sw de campo, siguiendo calles y terminando en el SW
     for _, row in sw_campo.iterrows():
         add_route_by_street(
             m,
@@ -509,7 +495,7 @@ with tab_p2p:
         st.markdown("- El CORE concentra el grabador / NVR y routing principal.")
         st.markdown("- Un switch con **8 puertos ópticos** distribuye la troncal.")
         st.markdown("- Cada puerto óptico alimenta un **switch de campo**.")
-        st.markdown("- Desde cada switch de campo salen **2 o más cámaras** por UTP.")
+        st.markmarkdown("- Desde cada switch de campo salen **2 o más cámaras** por UTP.")
 
         fig_p2p = create_topology_diagram("p2p")
         st.plotly_chart(fig_p2p, use_container_width=True)
@@ -546,7 +532,7 @@ En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
 Las líneas representan los **enlaces de fibra**:
 - CORE → Sw 8P (intra-edificio).
 - Sw 8P → cada switch de campo (FO urbana), siguiendo rutas reales por las calles
-  según la red vial de OpenStreetMap.
+  según la red vial de OpenStreetMap, con fondo oscuro simplificado.
 """)
 
     m = build_mendoza_p2p_map_osmnx()
@@ -579,7 +565,7 @@ with tab_ring:
         )
         st.markdown("**Idea visual:**")
         st.markdown("- Anillo de switches interconectados (fibra).")
-        st.markdown("- Derivaciones hacia cámaras en cada nodo.")
+        st.markmarkdown("- Derivaciones hacia cámaras en cada nodo.")
         st.markdown("- Soporta redundancia por camino alternativo ante cortes.")
 
         fig_ring = create_topology_diagram("ring")
@@ -614,7 +600,7 @@ with tab_fttn:
             "Fibra hasta un **Nodo FTTN** (FOSC + divisor + ONU / switch), "
             "y desde allí distribución hacia varios puntos con UTP o FO secundaria."
         )
-        st.markdown("**Flujo básico:**")
+        st.markmarkdown("**Flujo básico:**")
         st.markdown("- CORE / NVR en un punto central (datacenter).")
         st.markdown("- Fibra troncal hasta nodos FTTN estratégicos.")
         st.markdown("- En cada nodo: elementos de acceso (ONU / switch).")
@@ -666,5 +652,5 @@ with tab_comp:
 
     st.markdown("### Disparadores para la discusión en clase")
     st.markdown("- ¿En qué tipo de sitio conviene P2P con switches de campo? (ej: pocos nodos bien concentrados).")
-    st.markdown("- ¿Cuándo justifica un anillo? (ej: corredores críticos y necesidad de alta disponibilidad).")
+    st.markmarkdown("- ¿Cuándo justifica un anillo? (ej: corredores críticos y necesidad de alta disponibilidad).")
     st.markdown("- ¿Cuándo FTTN equilibra costo, escalabilidad y mantenimiento en CCTV urbano?")
