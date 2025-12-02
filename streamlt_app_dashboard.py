@@ -611,7 +611,8 @@ with tab_comp:
     st.markdown("### Tabla comparativa")
     st.dataframe(df_comp, use_container_width=True)
 
-    st.markmarkdown("### Disparadores para la discusión en clase")
+    st.markdown("### Disparadores para la discusión en clase")
     st.markdown("- ¿En qué tipo de sitio conviene P2P con switches de campo? (ej: pocos nodos bien concentrados).")
     st.markdown("- ¿Cuándo justifica un anillo? (ej: corredores críticos y necesidad de alta disponibilidad).")
     st.markdown("- ¿Cuándo FTTN equilibra costo, escalabilidad y mantenimiento en CCTV urbano?")
+
