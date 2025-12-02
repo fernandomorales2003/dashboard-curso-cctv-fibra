@@ -30,6 +30,9 @@ comparando tres modelos de implementación de fibra óptica:
 
 st.markdown("---")
 
+# Color FICOM para fibras
+FICOM_COLOR = "#4FB4CA"
+
 
 # =========================================
 # FUNCIÓN DIAGRAMAS LÓGICOS (PLOTLY)
@@ -61,24 +64,24 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # Switch óptico de 8 bocas (cuadrado azul) al medio
+        # Switch óptico de 8 bocas (cuadrado naranja) al medio
         sw_core_x, sw_core_y = -0.3, 0.5
         fig.add_trace(go.Scatter(
             x=[sw_core_x],
             y=[sw_core_y],
             mode="markers+text",
-            marker=dict(size=20, symbol="square", color="royalblue"),
+            marker=dict(size=20, symbol="square", color="orange"),
             text=["Sw 8P ópticas"],
             textposition="bottom center",
             showlegend=False
         ))
 
-        # Enlace CORE → Sw 8P
+        # Enlace CORE → Sw 8P (fibra FICOM)
         fig.add_trace(go.Scatter(
             x=[core_x, sw_core_x],
             y=[core_y, sw_core_y],
             mode="lines",
-            line=dict(width=3),
+            line=dict(width=3, color=FICOM_COLOR),
             showlegend=False
         ))
 
@@ -94,12 +97,12 @@ def create_topology_diagram(topology: str) -> go.Figure:
         for fs in field_switches:
             sx, sy = fs["x"], fs["y"]
 
-            # Fibra óptica Sw 8P → Sw Campo
+            # Fibra óptica Sw 8P → Sw Campo (FICOM)
             fig.add_trace(go.Scatter(
                 x=[sw_core_x, sx],
                 y=[sw_core_y, sy],
                 mode="lines",
-                line=dict(width=2),
+                line=dict(width=2, color=FICOM_COLOR),
                 showlegend=False
             ))
 
@@ -120,12 +123,12 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 (sx + 0.35, sy - 0.12),
             ]
             for (cx, cy) in cam_positions:
-                # Enlace eléctrico (UTP)
+                # Enlace eléctrico (UTP) – gris punteado
                 fig.add_trace(go.Scatter(
                     x=[sx, cx],
                     y=[sy, cy],
                     mode="lines",
-                    line=dict(width=1.8, dash="dot"),
+                    line=dict(width=1.8, dash="dot", color="gray"),
                     showlegend=False
                 ))
                 # Cámara
@@ -133,7 +136,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                     x=[cx],
                     y=[cy],
                     mode="markers+text",
-                    marker=dict(size=12, symbol="circle"),
+                    marker=dict(size=12, symbol="circle", color="black"),
                     text=[f"Cam {cam_index}"],
                     textposition="top center",
                     showlegend=False
@@ -165,7 +168,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
 
         fig = go.Figure()
 
-        # Enlaces del anillo (líneas entre switches)
+        # Enlaces del anillo (fibra FICOM)
         for i in range(n):
             x0, y0 = switch_x[i], switch_y[i]
             x1, y1 = switch_x[(i + 1) % n], switch_y[(i + 1) % n]
@@ -173,7 +176,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 x=[x0, x1],
                 y=[y0, y1],
                 mode="lines",
-                line=dict(width=2),
+                line=dict(width=2, color=FICOM_COLOR),
                 showlegend=False
             ))
 
@@ -188,7 +191,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # Cámaras “colgando” de cada switch
+        # Cámaras “colgando” de cada switch (UTP)
         cam_offset = 0.25
         for i in range(n):
             sx, sy = switch_x[i], switch_y[i]
@@ -198,14 +201,14 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 x=[sx, cx],
                 y=[sy, cy],
                 mode="lines",
-                line=dict(width=1.5),
+                line=dict(width=1.5, color="gray"),
                 showlegend=False
             ))
             fig.add_trace(go.Scatter(
                 x=[cx],
                 y=[cy],
                 mode="markers+text",
-                marker=dict(size=12, symbol="circle"),
+                marker=dict(size=12, symbol="circle", color="black"),
                 text=[f"Cam {i+1}"],
                 textposition="top center",
                 showlegend=False
@@ -252,12 +255,12 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # Enlace CORE → Nodo
+        # Enlace CORE → Nodo (fibra FICOM)
         fig.add_trace(go.Scatter(
             x=[core_x, node_x],
             y=[core_y, node_y],
             mode="lines",
-            line=dict(width=3),
+            line=dict(width=3, color=FICOM_COLOR),
             showlegend=False
         ))
 
@@ -269,12 +272,12 @@ def create_topology_diagram(topology: str) -> go.Figure:
         ]
 
         for i, (sx, sy) in enumerate(sw_positions, start=1):
-            # Enlace nodo → switch (fibra)
+            # Enlace nodo → switch (fibra FICOM)
             fig.add_trace(go.Scatter(
                 x=[node_x, sx],
                 y=[node_y, sy],
                 mode="lines",
-                line=dict(width=2),
+                line=dict(width=2, color=FICOM_COLOR),
                 showlegend=False
             ))
             # Switch
@@ -295,14 +298,14 @@ def create_topology_diagram(topology: str) -> go.Figure:
                     x=[sx, cx],
                     y=[sy, cy],
                     mode="lines",
-                    line=dict(width=1.5, dash="dot"),
+                    line=dict(width=1.5, dash="dot", color="gray"),
                     showlegend=False
                 ))
                 fig.add_trace(go.Scatter(
                     x=[cx],
                     y=[cy],
                     mode="markers+text",
-                    marker=dict(size=12, symbol="circle"),
+                    marker=dict(size=12, symbol="circle", color="black"),
                     text=[f"Cam {i}.{j}"],
                     textposition="top center",
                     showlegend=False
@@ -356,7 +359,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     )
 
     # Nodos lógicos de nuestra red CCTV
-    # Nota: CORE y Sw 8P están en la misma zona (datacenter), dentro del recuadro punteado
+    # CORE y Sw 8P dentro del datacenter
     nodes = [
         {
             "name": "CORE / NVR",
@@ -412,7 +415,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
         tooltip="DATACENTER (CORE / NVR + Sw 8P)",
     ).add_to(m)
 
-    # Colores por tipo (todos brillantes para fondo negro)
+    # Colores por tipo (brillantes para fondo negro)
     def node_color(t):
         if t == "CORE":
             return "red"
@@ -422,7 +425,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             return "lime"
         return "white"
 
-    # Marcadores de nodos:
+    # Marcadores:
     # - CORE: círculo
     # - SW_CORE y SW_CAMPO: cuadrados
     for _, row in df_nodes.iterrows():
@@ -430,7 +433,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             # NVR / CORE círculo rojo
             folium.CircleMarker(
                 location=[row["lat"], row["lon"]],
-                radius=7,
+                radius=8,
                 color=node_color(row["type"]),
                 fill=True,
                 fill_color=node_color(row["type"]),
@@ -438,12 +441,27 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
                 popup=f"{row['name']}<br>{row['descripcion']}",
                 tooltip=row["name"],
             ).add_to(m)
-        else:
-            # Switches cuadrados (RegularPolygonMarker con 4 lados)
-            folium.RegularPolygonMarker(
+
+        elif row["type"] == "SW_CORE":
+            # Sw 8P: cuadrado naranja
+            RegularPolygonMarker(
                 location=[row["lat"], row["lon"]],
                 number_of_sides=4,
-                radius=7,
+                radius=9,
+                color=node_color(row["type"]),
+                fill=True,
+                fill_color=node_color(row["type"]),
+                fill_opacity=0.9,
+                popup=f"{row['name']}<br>{row['descripcion']}",
+                tooltip=row["name"],
+            ).add_to(m)
+
+        elif row["type"] == "SW_CAMPO":
+            # Switches de campo: cuadrados verdes
+            RegularPolygonMarker(
+                location=[row["lat"], row["lon"]],
+                number_of_sides=4,
+                radius=9,
                 color=node_color(row["type"]),
                 fill=True,
                 fill_color=node_color(row["type"]),
@@ -481,13 +499,12 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
 
         folium.PolyLine(
             locations=route_coords,
-            color="white",   # fibra sobre fondo negro
+            color=FICOM_COLOR,   # fibra FICOM sobre fondo negro
             weight=3,
             tooltip=tooltip,
         ).add_to(map_obj)
 
         # "Gastamos" los edges del camino para que el próximo no los use
-        # (evitamos compartir tramos entre diferentes rutas)
         for u, v in zip(route, route[1:]):
             if G_work.has_edge(u, v):
                 G_work.remove_edge(u, v)
@@ -495,20 +512,19 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
                 G_work.remove_edge(v, u)
 
     # Recuperamos nodos clave
-    core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]      # no se usa para ruteo, solo visual
+    core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]      # solo visual
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
     sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
 
-    # CORE → Sw 8P (intra-edificio, recto y blanco)
+    # CORE → Sw 8P (intra-edificio, recto y FICOM)
     folium.PolyLine(
         locations=[[core["lat"], core["lon"]], [sw_core["lat"], sw_core["lon"]]],
-        color="white",
+        color=FICOM_COLOR,
         weight=4,
         tooltip="FO CORE → Sw 8P",
     ).add_to(m)
 
     # Sw 8P → cada Sw de campo, siguiendo calles y terminando en el SW
-    # Las rutas se calculan sobre G_work, que vamos modificando
     for _, row in sw_campo.iterrows():
         add_route_by_street(
             m,
@@ -585,7 +601,7 @@ En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
   - `Sw Campo B — Parque Central`
   - `Sw Campo C — Terminal de Ómnibus`
 
-Las líneas representan los **enlaces de fibra**:
+Las líneas en color **FICOM** representan los **enlaces de fibra óptica**:
 - CORE → Sw 8P (intra-edificio).
 - Sw 8P → cada switch de campo (FO urbana), siguiendo rutas reales por las calles
   según la red vial de OpenStreetMap, con fondo oscuro simplificado.
@@ -626,8 +642,8 @@ with tab_ring:
             "desde los cuales salen derivaciones hacia las cámaras."
         )
         st.markdown("**Idea visual:**")
-        st.markdown("- Anillo de switches interconectados (fibra).")
-        st.markdown("- Derivaciones hacia cámaras en cada nodo.")
+        st.markdown("- Anillo de switches interconectados (fibra en color FICOM).")
+        st.markdown("- Derivaciones hacia cámaras en cada nodo (UTP).")
         st.markdown("- Soporta redundancia por camino alternativo ante cortes.")
 
         fig_ring = create_topology_diagram("ring")
