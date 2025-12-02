@@ -5,4 +5,4 @@ plotly
 folium
 osmnx
 networkx
-scipy
+scikit-learn
