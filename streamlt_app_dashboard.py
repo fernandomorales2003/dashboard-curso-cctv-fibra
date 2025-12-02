@@ -31,7 +31,7 @@ comparando tres modelos de implementación de fibra óptica:
 
 st.markdown("---")
 
-# Color FICOM para fibras
+# Color base FICOM para fibras
 FICOM_COLOR = "#4FB4CA"
 
 
@@ -137,7 +137,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                     x=[cx],
                     y=[cy],
                     mode="markers+text",
-                    marker=dict(size=12, symbol="circle", color="black"),
+                    marker=dict(size=12, symbol="triangle-up", color="black"),
                     text=[f"Cam {cam_index}"],
                     textposition="top center",
                     showlegend=False
@@ -209,7 +209,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 x=[cx],
                 y=[cy],
                 mode="markers+text",
-                marker=dict(size=12, symbol="circle", color="black"),
+                marker=dict(size=12, symbol="triangle-up", color="black"),
                 text=[f"Cam {i+1}"],
                 textposition="top center",
                 showlegend=False
@@ -306,7 +306,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                     x=[cx],
                     y=[cy],
                     mode="markers+text",
-                    marker=dict(size=12, symbol="circle", color="black"),
+                    marker=dict(size=12, symbol="triangle-up", color="black"),
                     text=[f"Cam {i}.{j}"],
                     textposition="top center",
                     showlegend=False
@@ -400,9 +400,9 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
 
     df_nodes = pd.DataFrame(nodes)
 
-    # Recuadro del DATACENTER (10% más chico que antes)
-    dc_delta_lat = 0.0009   # antes 0.001
-    dc_delta_lon = 0.00108  # antes 0.0012
+    # Recuadro del DATACENTER (ligeramente más chico)
+    dc_delta_lat = 0.0009
+    dc_delta_lon = 0.00108
     folium.Rectangle(
         bounds=[
             [center_lat - dc_delta_lat, center_lon - dc_delta_lon],
@@ -465,11 +465,22 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
                 tooltip=row["name"],
             ).add_to(m)
 
-    # Helper para dibujar ruta real por calles con fallback
-    def add_route_by_street(map_obj, G_work, G_full, lat0, lon0, lat1, lon1, tooltip: str):
+    # Helper para dibujar ruta real por calles con fallback y color propio
+    def add_route_by_street(
+        map_obj,
+        G_work,
+        G_full,
+        lat0,
+        lon0,
+        lat1,
+        lon1,
+        tooltip: str,
+        color: str,
+    ):
         """
         Intenta calcular la ruta más corta en G_work.
         Si no hay camino, hace fallback a G_full (permitiendo compartir tramos).
+        Dibuja la traza en el color indicado.
         """
         def _shortest_path(G_used):
             orig_node = ox.distance.nearest_nodes(G_used, X=lon0, Y=lat0)
@@ -497,7 +508,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
 
         folium.PolyLine(
             locations=route_coords,
-            color=FICOM_COLOR,
+            color=color,
             weight=3,
             tooltip=tooltip,
         ).add_to(map_obj)
@@ -523,8 +534,12 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
         tooltip="FO CORE → Sw 8P",
     ).add_to(m)
 
+    # Colores distintos para cada traza Sw 8P → Sw Campo
+    route_colors = ["#4FB4CA", "#00CC83", "#3260EA"]  # paleta FICOM/derivados
+
     # Sw 8P → cada Sw de campo, siguiendo calles y terminando en el SW
-    for _, row in sw_campo.iterrows():
+    for i, (_, row) in enumerate(sw_campo.iterrows()):
+        color = route_colors[i % len(route_colors)]
         add_route_by_street(
             m,
             G_work,
@@ -534,7 +549,39 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             row["lat"],
             row["lon"],
             tooltip=f"FO Sw 8P → {row['name']}",
+            color=color,
         )
+
+    # -------------------------------
+    # UTP desde cada Sw Campo a la esquina más cercana (cámara)
+    # -------------------------------
+    for _, row in sw_campo.iterrows():
+        # nodo de esquina más cercano en la red vial
+        corner_node = ox.distance.nearest_nodes(G, X=row["lon"], Y=row["lat"])
+        corner_lat = G.nodes[corner_node]["y"]
+        corner_lon = G.nodes[corner_node]["x"]
+
+        # Cable UTP punteado (mucho más fino que la fibra)
+        folium.PolyLine(
+            locations=[[row["lat"], row["lon"]], [corner_lat, corner_lon]],
+            color="white",
+            weight=1,              # más fino que la FO
+            dash_array="4,4",      # punteado
+            tooltip="UTP desde Sw Campo a cámara (≤ 100 m aprox.)",
+        ).add_to(m)
+
+        # Cámara como triángulo en la esquina
+        RegularPolygonMarker(
+            location=[corner_lat, corner_lon],
+            number_of_sides=3,      # triángulo
+            radius=7,
+            rotation=0,
+            color="yellow",
+            fill=True,
+            fill_color="yellow",
+            fill_opacity=0.9,
+            tooltip="Cámara IP",
+        ).add_to(m)
 
     return m
 
@@ -595,13 +642,14 @@ En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
   - `Sw Campo B — Parque Central`
   - `Sw Campo C — Terminal de Ómnibus`
 
-Las líneas en color **FICOM** representan los **enlaces de fibra óptica**:
-- CORE → Sw 8P (intra-edificio).
-- Sw 8P → cada switch de campo (FO urbana), siguiendo rutas reales por las calles.
+Las líneas representan:
+- Enlaces de **fibra óptica** con colores distintos desde el Sw 8P hacia cada Sw Campo.
+- Desde cada Sw Campo, un **UTP punteado fino** (≤ 100 m aprox.) hasta la **esquina más cercana**, 
+  donde se marca la **cámara** con un triángulo amarillo.
 
-Si al intentar usar caminos totalmente distintos la red se queda sin ruta,
-para ese caso puntual se usa un **camino alternativo de fallback**, que puede
-reutilizar algún tramo, pero garantiza que siempre haya ruta para todas las sedes.
+Esto te permite explicar:
+- La diferencia entre **traza troncal en FO** y **ramales finales en cobre/UTP**.
+- La relación entre la red lógica y la **geografía real de la ciudad**.
 """)
 
     m = build_mendoza_p2p_map_osmnx()
