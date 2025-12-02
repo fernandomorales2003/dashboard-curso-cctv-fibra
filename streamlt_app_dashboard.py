@@ -5,6 +5,9 @@ import plotly.graph_objects as go
 import folium
 import streamlit.components.v1 as components
 
+import osmnx as ox
+import networkx as nx
+
 # =========================================
 # CONFIGURACIÓN GENERAL DEL DASHBOARD
 # =========================================
@@ -320,74 +323,93 @@ def create_topology_diagram(topology: str) -> go.Figure:
 
 
 # =========================================
-# MAPA EJEMPLO REAL — MENDOZA (P2P, sin osmnx)
+# MAPA EJEMPLO REAL — MENDOZA (P2P, OSMnx + Folium)
 # =========================================
-def build_mendoza_p2p_map_manual() -> folium.Map:
+def build_mendoza_p2p_map_osmnx() -> folium.Map:
     """
-    Mapa de ejemplo en la ciudad de Mendoza (P2P) usando Folium + OpenStreetMap:
-
-    - CORE / NVR en Microcentro
-    - Sw 8P ópticas en el mismo edificio
-    - 3 switches de campo (Plaza Independencia, Parque Central, Terminal)
-      todos a menos de ~1 km del CORE.
-
-    Los enlaces FO se dibujan como polilíneas en “L” (tipo calles),
-    sin diagonales que corten manzanas.
+    Mapa de ejemplo en la ciudad de Mendoza (P2P) usando:
+    - OSMnx para obtener la red vial real y calcular rutas por las calles.
+    - Folium + OpenStreetMap para mostrar el mapa.
     """
 
-    # Coordenadas aproximadas del centro de Mendoza
+    # Centro aproximado de Mendoza
     center_lat = -32.8895
     center_lon = -68.8458
 
-    # NODOS (coordenadas aprox y distancias < ~1km)
+    # Grafo de calles en un radio de ~2 km
+    G = ox.graph_from_point(
+        (center_lat, center_lon),
+        dist=2000,
+        network_type="drive"
+    )
+
+    # Mapa base
+    m = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=14,
+        tiles="OpenStreetMap",
+    )
+
+    # Dibujar TODAS las calles del grafo en gris
+    for u, v, data in G.edges(data=True):
+        geom = data.get("geometry", None)
+        if geom is not None:
+            xs, ys = geom.xy          # x = lon, y = lat
+            coords = list(zip(ys, xs))  # (lat, lon)
+        else:
+            y1, x1 = G.nodes[u]["y"], G.nodes[u]["x"]
+            y2, x2 = G.nodes[v]["y"], G.nodes[v]["x"]
+            coords = [(y1, x1), (y2, x2)]
+
+        folium.PolyLine(
+            locations=coords,
+            color="#bbbbbb",
+            weight=1,
+            opacity=0.6,
+        ).add_to(m)
+
+    # Nodos lógicos de nuestra red CCTV
     nodes = [
         {
             "name": "CORE / NVR",
             "type": "CORE",
             "lat": center_lat,
             "lon": center_lon,
-            "descripcion": "Datacenter / Municipalidad (Microcentro)"
+            "descripcion": "Datacenter / Municipalidad (Microcentro)",
         },
         {
             "name": "Sw 8P ópticas (Sala Técnica)",
             "type": "SW_CORE",
-            "lat": center_lat + 0.0003,   # ~30 m
+            "lat": center_lat + 0.0003,
             "lon": center_lon + 0.0003,
-            "descripcion": "Switch de distribución óptica principal"
+            "descripcion": "Switch de distribución óptica principal",
         },
         {
             "name": "Sw Campo A — Plaza Independencia",
             "type": "SW_CAMPO",
-            "lat": center_lat + 0.004,    # ~450 m N
+            "lat": center_lat + 0.004,
             "lon": center_lon,
-            "descripcion": "Switch de campo alimentando 4 cámaras de la plaza"
+            "descripcion": "Switch de campo alimentando 4 cámaras de la plaza",
         },
         {
             "name": "Sw Campo B — Parque Central",
             "type": "SW_CAMPO",
-            "lat": center_lat + 0.005,    # ~550 m N
-            "lon": center_lon - 0.006,    # ~650 m O
-            "descripcion": "Switch de campo alimentando cámaras del Parque Central"
+            "lat": center_lat + 0.005,
+            "lon": center_lon - 0.006,
+            "descripcion": "Switch de campo alimentando cámaras del Parque Central",
         },
         {
             "name": "Sw Campo C — Terminal de Ómnibus",
             "type": "SW_CAMPO",
-            "lat": center_lat - 0.004,    # ~450 m S
-            "lon": center_lon + 0.006,    # ~650 m E
-            "descripcion": "Switch de campo alimentando cámaras en accesos a la Terminal"
+            "lat": center_lat - 0.004,
+            "lon": center_lon + 0.006,
+            "descripcion": "Switch de campo alimentando cámaras en accesos a la Terminal",
         },
     ]
 
     df_nodes = pd.DataFrame(nodes)
 
-    # Mapa base OSM
-    m = folium.Map(
-        location=[center_lat, center_lon],
-        zoom_start=14,
-        tiles="OpenStreetMap"
-    )
-
-    # Colores por tipo de nodo
+    # Colores por tipo
     def node_color(t):
         if t == "CORE":
             return "black"
@@ -397,7 +419,7 @@ def build_mendoza_p2p_map_manual() -> folium.Map:
             return "green"
         return "gray"
 
-    # Marcadores de nodos (CORE, Sw 8P, Sw campo)
+    # Marcadores de nodos
     for _, row in df_nodes.iterrows():
         folium.CircleMarker(
             location=[row["lat"], row["lon"]],
@@ -410,12 +432,31 @@ def build_mendoza_p2p_map_manual() -> folium.Map:
             tooltip=row["name"],
         ).add_to(m)
 
+    # Helper para dibujar ruta real por calles
+    def add_route_by_street(map_obj, G, lat0, lon0, lat1, lon1, tooltip: str):
+        """
+        Calcula la ruta más corta por la red vial entre (lat0, lon0) y (lat1, lon1)
+        y la dibuja en el mapa.
+        nearest_nodes usa scikit-learn como dependencia opcional.
+        """
+        # nearest_nodes espera X=lon, Y=lat
+        orig_node = ox.distance.nearest_nodes(G, X=lon0, Y=lat0)
+        dest_node = ox.distance.nearest_nodes(G, X=lon1, Y=lat1)
+
+        route = nx.shortest_path(G, orig_node, dest_node, weight="length")
+        route_coords = [(G.nodes[n]["y"], G.nodes[n]["x"]) for n in route]
+
+        folium.PolyLine(
+            locations=route_coords,
+            color="black",
+            weight=3,
+            tooltip=tooltip,
+        ).add_to(map_obj)
+
     # Recuperamos nodos clave
     core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
-    sw_plaza = df_nodes[df_nodes["name"].str.contains("Plaza Independencia")].iloc[0]
-    sw_parque = df_nodes[df_nodes["name"].str.contains("Parque Central")].iloc[0]
-    sw_terminal = df_nodes[df_nodes["name"].str.contains("Terminal")].iloc[0]
+    sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
 
     # CORE → Sw 8P (intra-edificio, recto)
     folium.PolyLine(
@@ -425,64 +466,17 @@ def build_mendoza_p2p_map_manual() -> folium.Map:
         tooltip="FO CORE → Sw 8P",
     ).add_to(m)
 
-    # Helper para ruta “Manhattan” (sin diagonales)
-    def manhattan_path(lat0, lon0, lat1, lon1, mode="lat_first"):
-        """
-        Genera una lista de puntos:
-        - mode='lat_first': cambia latitud primero, luego longitud
-        - mode='lon_first': cambia longitud primero, luego latitud
-        """
-        if mode == "lat_first":
-            return [
-                [lat0, lon0],
-                [lat1, lon0],   # solo latitud
-                [lat1, lon1],   # luego longitud
-            ]
-        else:
-            return [
-                [lat0, lon0],
-                [lat0, lon1],   # solo longitud
-                [lat1, lon1],   # luego latitud
-            ]
-
-    # Sw 8P → Sw Campo A (Plaza Independencia)
-    path_plaza = manhattan_path(
-        sw_core["lat"], sw_core["lon"],
-        sw_plaza["lat"], sw_plaza["lon"],
-        mode="lat_first"   # sube/baja y luego va a la plaza
-    )
-    folium.PolyLine(
-        locations=path_plaza,
-        color="black",
-        weight=3,
-        tooltip="FO Sw 8P → Sw Campo A (Plaza Independencia)",
-    ).add_to(m)
-
-    # Sw 8P → Sw Campo B (Parque Central) — primero va al oeste, luego al norte
-    path_parque = manhattan_path(
-        sw_core["lat"], sw_core["lon"],
-        sw_parque["lat"], sw_parque["lon"],
-        mode="lon_first"
-    )
-    folium.PolyLine(
-        locations=path_parque,
-        color="black",
-        weight=3,
-        tooltip="FO Sw 8P → Sw Campo B (Parque Central)",
-    ).add_to(m)
-
-    # Sw 8P → Sw Campo C (Terminal) — primero al este, luego al sur
-    path_terminal = manhattan_path(
-        sw_core["lat"], sw_core["lon"],
-        sw_terminal["lat"], sw_terminal["lon"],
-        mode="lon_first"
-    )
-    folium.PolyLine(
-        locations=path_terminal,
-        color="black",
-        weight=3,
-        tooltip="FO Sw 8P → Sw Campo C (Terminal)",
-    ).add_to(m)
+    # Sw 8P → cada Sw de campo, siguiendo calles
+    for _, row in sw_campo.iterrows():
+        add_route_by_street(
+            m,
+            G,
+            sw_core["lat"],
+            sw_core["lon"],
+            row["lat"],
+            row["lon"],
+            tooltip=f"FO Sw 8P → {row['name']}",
+        )
 
     return m
 
@@ -551,11 +545,11 @@ En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
 
 Las líneas representan los **enlaces de fibra**:
 - CORE → Sw 8P (intra-edificio).
-- Sw 8P → cada switch de campo (FO urbana), con recorridos en “L” 
-  para aproximar el trazado de calles y evitar diagonales que cortan manzanas.
+- Sw 8P → cada switch de campo (FO urbana), siguiendo rutas reales por las calles
+  según la red vial de OpenStreetMap.
 """)
 
-    m = build_mendoza_p2p_map_manual()
+    m = build_mendoza_p2p_map_osmnx()
     components.html(m._repr_html_(), height=500)
 
     st.markdown("""
@@ -564,9 +558,9 @@ Las líneas representan los **enlaces de fibra**:
 - Identificar sobre el mapa:
   - Dónde está el **CORE** y el **switch de 8P**.
   - La ubicación de cada **switch de campo** (plaza, parque, terminal).
-- Discutir si el recorrido de fibra planteado es razonable
-  según el trazado de calles, postes, ductos, etc.
-- Proponer variantes de recorrido y qué impacto tienen en longitud de FO y costos.
+- Analizar por qué el algoritmo eligió ese recorrido por calles (mínima distancia).
+- Discutir por dónde **realmente canalizarías** la fibra (postes, ductos, vereda, etc.)
+  y si cambiarías el recorrido.
 """)
 
 # =========================================================
@@ -673,4 +667,4 @@ with tab_comp:
     st.markdown("### Disparadores para la discusión en clase")
     st.markdown("- ¿En qué tipo de sitio conviene P2P con switches de campo? (ej: pocos nodos bien concentrados).")
     st.markdown("- ¿Cuándo justifica un anillo? (ej: corredores críticos y necesidad de alta disponibilidad).")
-    st.markmarkdown("- ¿Cuándo FTTN equilibra costo, escalabilidad y mantenimiento en CCTV urbano?")
+    st.markdown("- ¿Cuándo FTTN equilibra costo, escalabilidad y mantenimiento en CCTV urbano?")
