@@ -132,7 +132,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
                     line=dict(width=1.8, dash="dot", color="gray"),
                     showlegend=False
                 ))
-                # Cámara
+                # Cámara (triángulo)
                 fig.add_trace(go.Scatter(
                     x=[cx],
                     y=[cy],
@@ -335,7 +335,8 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     Mapa de ejemplo en la ciudad de Mendoza (P2P) usando:
     - OSMnx para obtener la red vial real y calcular rutas por las calles.
     - Folium + CartoDB Dark Matter como fondo (calles sobre fondo oscuro).
-    - Rutas de FO sin compartir tramos (en lo posible) entre switches de campo.
+    - Switches de campo ubicados a mitad de cuadra.
+    - 2 cámaras por cada switch de campo, en las esquinas de la cuadra (UTP).
     """
 
     # Centro aproximado de Mendoza
@@ -359,7 +360,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
         tiles="CartoDB dark_matter",
     )
 
-    # Nodos lógicos de nuestra red CCTV
+    # Nodos lógicos de nuestra red CCTV (lat/lon "referencia")
     nodes = [
         {
             "name": "CORE / NVR",
@@ -400,6 +401,33 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
 
     df_nodes = pd.DataFrame(nodes)
 
+    # Coordenadas reales para dibujo:
+    # - mid_lat/mid_lon = posición donde se dibuja el equipo
+    # - corner1/2 = esquinas de la cuadra para las cámaras (solo SW_CAMPO)
+    df_nodes["mid_lat"] = df_nodes["lat"]
+    df_nodes["mid_lon"] = df_nodes["lon"]
+    df_nodes["corner1_lat"] = np.nan
+    df_nodes["corner1_lon"] = np.nan
+    df_nodes["corner2_lat"] = np.nan
+    df_nodes["corner2_lon"] = np.nan
+
+    # Para cada SW_CAMPO: buscar la cuadra (edge) más cercana y colocar el switch a mitad de cuadra
+    for idx, row in df_nodes[df_nodes["type"] == "SW_CAMPO"].iterrows():
+        u, v, key = ox.distance.nearest_edges(G, X=row["lon"], Y=row["lat"])
+        y_u, x_u = G.nodes[u]["y"], G.nodes[u]["x"]
+        y_v, x_v = G.nodes[v]["y"], G.nodes[v]["x"]
+
+        # Punto medio de la cuadra
+        mid_lat = (y_u + y_v) / 2
+        mid_lon = (x_u + x_v) / 2
+
+        df_nodes.loc[idx, "mid_lat"] = mid_lat
+        df_nodes.loc[idx, "mid_lon"] = mid_lon
+        df_nodes.loc[idx, "corner1_lat"] = y_u
+        df_nodes.loc[idx, "corner1_lon"] = x_u
+        df_nodes.loc[idx, "corner2_lat"] = y_v
+        df_nodes.loc[idx, "corner2_lon"] = x_v
+
     # Recuadro del DATACENTER (ligeramente más chico)
     dc_delta_lat = 0.0009
     dc_delta_lon = 0.00108
@@ -426,10 +454,12 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
         return "white"
 
     # Marcadores:
-    # - CORE: círculo
-    # - SW_CORE y SW_CAMPO: cuadrados
+    # - CORE: círculo en su lat/lon original (dentro del recuadro)
+    # - SW_CORE: cuadrado en su lat/lon original
+    # - SW_CAMPO: cuadrados verdes a mitad de cuadra (mid_lat/mid_lon)
     for _, row in df_nodes.iterrows():
         if row["type"] == "CORE":
+            # CORE en posición original
             folium.CircleMarker(
                 location=[row["lat"], row["lon"]],
                 radius=8,
@@ -441,6 +471,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
                 tooltip=row["name"],
             ).add_to(m)
         elif row["type"] == "SW_CORE":
+            # Sw 8P en posición original
             RegularPolygonMarker(
                 location=[row["lat"], row["lon"]],
                 number_of_sides=4,
@@ -453,8 +484,9 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
                 tooltip=row["name"],
             ).add_to(m)
         elif row["type"] == "SW_CAMPO":
+            # Sw de campo en mitad de cuadra
             RegularPolygonMarker(
-                location=[row["lat"], row["lon"]],
+                location=[row["mid_lat"], row["mid_lon"]],
                 number_of_sides=4,
                 radius=9,
                 color=node_color(row["type"]),
@@ -537,7 +569,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     # Colores distintos para cada traza Sw 8P → Sw Campo
     route_colors = ["#4FB4CA", "#00CC83", "#3260EA"]  # paleta FICOM/derivados
 
-    # Sw 8P → cada Sw de campo, siguiendo calles y terminando en el SW
+    # Sw 8P → cada Sw de campo, siguiendo calles y terminando a mitad de cuadra
     for i, (_, row) in enumerate(sw_campo.iterrows()):
         color = route_colors[i % len(route_colors)]
         add_route_by_street(
@@ -546,33 +578,33 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             G,
             sw_core["lat"],
             sw_core["lon"],
-            row["lat"],
-            row["lon"],
+            row["mid_lat"],
+            row["mid_lon"],
             tooltip=f"FO Sw 8P → {row['name']}",
             color=color,
         )
 
     # -------------------------------
-    # UTP desde cada Sw Campo a la esquina más cercana (cámara)
+    # UTP desde cada Sw Campo a las dos esquinas de la cuadra (2 cámaras)
     # -------------------------------
     for _, row in sw_campo.iterrows():
-        # nodo de esquina más cercano en la red vial
-        corner_node = ox.distance.nearest_nodes(G, X=row["lon"], Y=row["lat"])
-        corner_lat = G.nodes[corner_node]["y"]
-        corner_lon = G.nodes[corner_node]["x"]
+        mid_lat = row["mid_lat"]
+        mid_lon = row["mid_lon"]
+        c1_lat, c1_lon = row["corner1_lat"], row["corner1_lon"]
+        c2_lat, c2_lon = row["corner2_lat"], row["corner2_lon"]
 
-        # Cable UTP punteado (mucho más fino que la fibra)
+        # Cable UTP punteado (mucho más fino que la fibra) hacia esquina 1
         folium.PolyLine(
-            locations=[[row["lat"], row["lon"]], [corner_lat, corner_lon]],
+            locations=[[mid_lat, mid_lon], [c1_lat, c1_lon]],
             color="white",
             weight=1,              # más fino que la FO
             dash_array="4,4",      # punteado
-            tooltip="UTP desde Sw Campo a cámara (≤ 100 m aprox.)",
+            tooltip="UTP desde Sw Campo a cámara 1 (≤ 100 m aprox.)",
         ).add_to(m)
 
-        # Cámara como triángulo en la esquina
+        # Cámara 1 como triángulo en esquina 1
         RegularPolygonMarker(
-            location=[corner_lat, corner_lon],
+            location=[c1_lat, c1_lon],
             number_of_sides=3,      # triángulo
             radius=7,
             rotation=0,
@@ -580,7 +612,29 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             fill=True,
             fill_color="yellow",
             fill_opacity=0.9,
-            tooltip="Cámara IP",
+            tooltip="Cámara IP 1",
+        ).add_to(m)
+
+        # Cable UTP punteado hacia esquina 2
+        folium.PolyLine(
+            locations=[[mid_lat, mid_lon], [c2_lat, c2_lon]],
+            color="white",
+            weight=1,
+            dash_array="4,4",
+            tooltip="UTP desde Sw Campo a cámara 2 (≤ 100 m aprox.)",
+        ).add_to(m)
+
+        # Cámara 2 como triángulo en esquina 2
+        RegularPolygonMarker(
+            location=[c2_lat, c2_lon],
+            number_of_sides=3,
+            radius=7,
+            rotation=0,
+            color="yellow",
+            fill=True,
+            fill_color="yellow",
+            fill_opacity=0.9,
+            tooltip="Cámara IP 2",
         ).add_to(m)
 
     return m
@@ -637,19 +691,19 @@ En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
 
 - **CORE / NVR** (círculo rojo) dentro de un **Datacenter**.
 - Un **switch de 8 puertos ópticos** (cuadrado naranja) en la misma sala técnica.
-- Tres **switches de campo** (cuadrados verdes), todos a menos de ~1 km del CORE:
+- Tres **switches de campo** (cuadrados verdes), ubicados a **mitad de cuadra**, todos a menos de ~1 km del CORE:
   - `Sw Campo A — Plaza Independencia`
   - `Sw Campo B — Parque Central`
   - `Sw Campo C — Terminal de Ómnibus`
 
 Las líneas representan:
-- Enlaces de **fibra óptica** con colores distintos desde el Sw 8P hacia cada Sw Campo.
-- Desde cada Sw Campo, un **UTP punteado fino** (≤ 100 m aprox.) hasta la **esquina más cercana**, 
-  donde se marca la **cámara** con un triángulo amarillo.
+- Enlaces de **fibra óptica** (con colores distintos) desde el Sw 8P hacia cada Sw Campo.
+- Desde cada Sw Campo, **2 UTP punteados finos** (≤ 100 m aprox.) hacia las **dos esquinas de esa cuadra**, 
+  donde se marcan las **cámaras** con triángulos amarillos.
 
 Esto te permite explicar:
-- La diferencia entre **traza troncal en FO** y **ramales finales en cobre/UTP**.
-- La relación entre la red lógica y la **geografía real de la ciudad**.
+- La diferencia entre **traza troncal en FO** y **últimos 100 m en cobre/UTP**.
+- La relación entre la red lógica y la **geografía real de la ciudad** (calles, esquinas y cuadras).
 """)
 
     m = build_mendoza_p2p_map_osmnx()
@@ -706,7 +760,7 @@ with tab_fttn:
         st.markdown("**Flujo básico:**")
         st.markdown("- CORE / NVR en un punto central (datacenter).")
         st.markdown("- Fibra troncal hasta nodos FTTN estratégicos.")
-        st.markdown("- En cada nodo: elementos de acceso (ONU / switch).")
+        st.markmarkdown("- En cada nodo: elementos de acceso (ONU / switch).")
         st.markdown("- Desde el nodo, cámaras cercanas por UTP o FO corta.")
 
         fig_fttn = create_topology_diagram("fttn")
