@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import pydeck as pdk
 
 # =========================================
 # CONFIGURACIÓN GENERAL DEL DASHBOARD
@@ -318,6 +319,147 @@ def create_topology_diagram(topology: str) -> go.Figure:
 
 
 # =========================================
+# MAPA EJEMPLO REAL — MENDOZA (P2P)
+# =========================================
+def build_mendoza_p2p_map() -> pdk.Deck:
+    """
+    Mapa de ejemplo en la ciudad de Mendoza (P2P):
+    - CORE / NVR en Microcentro
+    - Sw 8P ópticas en el mismo edificio
+    - 3 switches de campo (Plaza Independencia, Parque Central, Terminal)
+      todos a menos de ~1 km del CORE.
+    """
+
+    # Coordenadas aproximadas del centro de Mendoza
+    center_lat = -32.8895
+    center_lon = -68.8458
+
+    # NODOS (coordenadas aproximadas y distancias < ~1km)
+    nodes = [
+        {
+            "name": "CORE / NVR",
+            "type": "CORE",
+            "lat": center_lat,
+            "lon": center_lon,
+            "descripcion": "Datacenter / Municipalidad (Microcentro)"
+        },
+        {
+            "name": "Sw 8P ópticas (Sala Técnica)",
+            "type": "SW_CORE",
+            "lat": center_lat + 0.0003,   # ~30 m
+            "lon": center_lon + 0.0003,
+            "descripcion": "Switch de distribución óptica principal"
+        },
+        {
+            "name": "Sw Campo A — Plaza Independencia",
+            "type": "SW_CAMPO",
+            "lat": center_lat + 0.004,    # ~450 m
+            "lon": center_lon,
+            "descripcion": "Switch de campo alimentando 4 cámaras de la plaza"
+        },
+        {
+            "name": "Sw Campo B — Parque Central",
+            "type": "SW_CAMPO",
+            "lat": center_lat + 0.005,    # ~550 m
+            "lon": center_lon - 0.006,    # ~650 m O
+            "descripcion": "Switch de campo alimentando cámaras del Parque Central"
+        },
+        {
+            "name": "Sw Campo C — Terminal",
+            "type": "SW_CAMPO",
+            "lat": center_lat - 0.004,    # ~450 m S
+            "lon": center_lon + 0.006,    # ~650 m E
+            "descripcion": "Switch de campo alimentando cámaras en accesos a la Terminal"
+        },
+    ]
+
+    df_nodes = pd.DataFrame(nodes)
+
+    # Colores por tipo
+    def node_color(t):
+        if t == "CORE":
+            return [0, 0, 0]          # negro
+        if t == "SW_CORE":
+            return [0, 100, 200]      # azul
+        if t == "SW_CAMPO":
+            return [0, 180, 0]        # verde
+        return [120, 120, 120]
+
+    df_nodes["color"] = df_nodes["type"].apply(node_color)
+
+    # LINKS (fibra)
+    # CORE -> Sw 8P
+    core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]
+    sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
+    sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
+
+    links = []
+
+    # CORE → Sw 8P
+    links.append({
+        "path": [
+            [core["lon"], core["lat"]],
+            [sw_core["lon"], sw_core["lat"]],
+        ]
+    })
+
+    # Sw 8P → cada Sw de campo
+    for _, row in sw_campo.iterrows():
+        links.append({
+            "path": [
+                [sw_core["lon"], sw_core["lat"]],
+                [row["lon"], row["lat"]],
+            ]
+        })
+
+    df_links = pd.DataFrame(links)
+
+    # Vista inicial
+    view_state = pdk.ViewState(
+        latitude=center_lat,
+        longitude=center_lon,
+        zoom=14,
+        pitch=45,
+        bearing=0,
+    )
+
+    # Capas
+    # Fibra como PathLayer
+    fiber_layer = pdk.Layer(
+        "PathLayer",
+        df_links,
+        get_path="path",
+        get_color=[0, 0, 0],
+        width_scale=2,
+        width_min_pixels=2,
+        get_width=4,
+    )
+
+    # Nodos como Scatterplot
+    nodes_layer = pdk.Layer(
+        "ScatterplotLayer",
+        df_nodes,
+        get_position=["lon", "lat"],
+        get_fill_color="color",
+        get_radius=35,
+        pickable=True,
+    )
+
+    tooltip = {
+        "html": "<b>{name}</b><br/>{descripcion}",
+        "style": {"backgroundColor": "white", "color": "black"}
+    }
+
+    deck = pdk.Deck(
+        map_style="mapbox://styles/mapbox/light-v9",
+        initial_view_state=view_state,
+        layers=[fiber_layer, nodes_layer],
+        tooltip=tooltip,
+    )
+    return deck
+
+
+# =========================================
 # TABS PRINCIPALES
 # =========================================
 tab_p2p, tab_ring, tab_fttn, tab_comp = st.tabs(
@@ -352,7 +494,7 @@ with tab_p2p:
 
     with col2:
         st.markdown("### Indicadores P2P (ejemplo)")
-        st.metric("Total de cámaras", 12)
+        st.metric("Total de cámaras (ejemplo)", 12)
         st.metric("Puertos ópticos en CORE", 8)
         st.metric("Switches de campo", 3)
 
@@ -365,81 +507,36 @@ with tab_p2p:
     st.markdown("---")
 
     # ---------------------------------
-    # EJEMPLO REAL — CIUDAD DE MENDOZA
+    # EJEMPLO REAL — MAPA CIUDAD DE MENDOZA
     # ---------------------------------
-    st.markdown("## Ejemplo real — Ciudad de Mendoza (P2P)")
+    st.markdown("## Ejemplo real — Ciudad de Mendoza (P2P sobre mapa)")
 
     st.markdown("""
-Imaginemos un diseño real en **Mendoza capital** para monitoreo urbano:
+En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
 
-- El **CORE / NVR** está en un datacenter del municipio en la zona de **Microcentro**.
-- Desde allí sale fibra hacia un **switch óptico de 8 bocas**.
-- Cada puerto óptico alimenta un **punto de distribución** en la ciudad: plazas y nodos estratégicos.
-- En cada punto de distribución hay un **switch de campo** (1 entrada óptica, varias salidas eléctricas) 
-  que alimenta 2–4 cámaras IP con tramos cortos de UTP.
+- **CORE / NVR** en el Microcentro (datacenter / edificio municipal).
+- Un **switch de 8 puertos ópticos** en la misma sala técnica.
+- Tres **switches de campo**, todos a menos de ~1 km del CORE:
+  - `Sw Campo A — Plaza Independencia`
+  - `Sw Campo B — Parque Central`
+  - `Sw Campo C — Terminal de Ómnibus`
+
+Las líneas representan los **enlaces de fibra**:
+- CORE → Sw 8P (intra-edificio).
+- Sw 8P → cada switch de campo (FO urbana).
 """)
 
-    data_mza_p2p = {
-        "Punto": [
-            "CORE / NVR",
-            "Sw 8P ópticas (Sala Técnica)",
-            "Sw Campo A — Plaza Independencia",
-            "Sw Campo B — Parque Central",
-            "Sw Campo C — Terminal de Ómnibus",
-        ],
-        "Ubicación aproximada": [
-            "Zona Microcentro (Municipalidad / Datacenter)",
-            "Mismo edificio CORE",
-            "Plaza Independencia (centro histórico)",
-            "Parque Central (zona norte ciudad)",
-            "Terminal de Ómnibus (acceso este)",
-        ],
-        "Rol en la red": [
-            "Procesamiento, grabación y gestión",
-            "Distribución óptica principal (8 puertos FO)",
-            "Switch de campo (1 FO in, 4 UTP out)",
-            "Switch de campo (1 FO in, 3 UTP out)",
-            "Switch de campo (1 FO in, 3 UTP out)",
-        ],
-        "N° cámaras asociadas": [
-            "-",  # CORE
-            "-",  # Sw 8P
-            "4 cámaras perimetrales plaza",
-            "3 cámaras parque",
-            "3 cámaras andenes / accesos",
-        ],
-        "Distancia FO aprox. desde CORE": [
-            "—",
-            "10–20 m (intra-edificio)",
-            "800–1000 m",
-            "1200–1500 m",
-            "1500–1800 m",
-        ],
-        "Distancia típica UTP (cámara–switch)": [
-            "—",
-            "—",
-            "30–60 m",
-            "30–70 m",
-            "20–50 m",
-        ],
-    }
-
-    df_mza_p2p = pd.DataFrame(data_mza_p2p)
-    st.markdown("### Tabla de ejemplo — nodos y cámaras en Mendoza")
-    st.dataframe(df_mza_p2p, use_container_width=True)
+    deck_mza = build_mendoza_p2p_map()
+    st.pydeck_chart(deck_mza)
 
     st.markdown("""
-**Idea didáctica para el curso:**
+**Actividad sugerida para los alumnos:**
 
-- Podés pedir a los alumnos que:
-  - Identifiquen cuáles enlaces son **FO** y cuáles son **UTP**.
-  - Estimen el **presupuesto óptico** desde el CORE hasta cada switch de campo.
-  - Verifiquen que las distancias de UTP cumplan con los límites de Ethernet.
-  - Propongan **dónde agregar redundancia** (por ejemplo, un segundo enlace FO a la Terminal).
-
-En los próximos pasos podemos armar ejemplos similares para:
-- 🔁 La topología en **Anillo** (por ejemplo, bordeando el centro y zona oeste).  
-- 🌿 La topología **FTTN**, usando nodos intermedios para barrios más alejados.
+- Identificar sobre el mapa:
+  - Dónde está el **CORE** y el **switch de 8P**.
+  - La ubicación de cada **switch de campo** (plaza, parque, terminal).
+- Estimar la longitud de los enlaces de FO (todos menores a ~1 km).
+- Proponer cuántas cámaras conectarías en cada switch de campo y qué zonas cubrirían.
 """)
 
 # =========================================================
@@ -477,7 +574,7 @@ with tab_ring:
         st.warning("✖ Requiere protocolos de anillo (STP/RSTP, ERPS, etc.).")
 
     st.markdown("---")
-    st.info("Más adelante podemos sumar un **ejemplo real de anillo en Mendoza** (por ejemplo, un anillo que una Microcentro, Parque Central, La Alameda y Terminal).")
+    st.info("Luego podemos sumar un **ejemplo real de anillo en Mendoza** (por ejemplo, un anillo rodeando el microcentro y parques principales).")
 
 # =========================================================
 # TAB 3 — FTTN (conceptual)
@@ -512,10 +609,10 @@ with tab_fttn:
         st.success("✔ Reduce la cantidad de fibra troncal desde el CORE.")
         st.success("✔ Permite escalar agregando nodos en nuevas zonas.")
         st.warning("✖ Más elementos activos en campo (más puntos de falla).")
-        st.warning("✖ Requiere buen diseño de alimentación eléctrica y alojamiento.")
+        st.warning("✖ Requiere buen diseño de alimentación eléctrica y housing.")
 
     st.markdown("---")
-    st.info("Luego podemos agregar un **caso real FTTN en Mendoza**, por ejemplo nodos en barrios periféricos con varias cámaras por nodo.")
+    st.info("Más adelante podemos armar también un **mapa FTTN en Mendoza**, con nodos distribuidos por barrios.")
 
 # =========================================================
 # TAB 4 — COMPARATIVO GLOBAL
