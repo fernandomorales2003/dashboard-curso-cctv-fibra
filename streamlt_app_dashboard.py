@@ -134,7 +134,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
         cam_offset = 0.25
         for i in range(n):
             sx, sy = switch_x[i], switch_y[i]
-            angle = angles[i]
             cx = sx * (1 + cam_offset)
             cy = sy * (1 + cam_offset)
             fig.add_trace(go.Scatter(
@@ -435,6 +434,7 @@ def build_pydeck_map(df: pd.DataFrame) -> pdk.Deck:
     # ---------------------------
     df_fibra_pts = df[(df["category"] == "Fibra") & (df["geom_type"] == "LineStringPoint")].copy()
     if not df_fibra_pts.empty:
+        # Agrupamos por nombre+cadena para formar las rutas
         df_paths = (
             df_fibra_pts
             .sort_values(["name", "cadena", "segment_index"])
@@ -554,7 +554,7 @@ with tab_ring:
             "desde los cuales salen derivaciones hacia las cámaras."
         )
         st.markdown("**Idea visual:**")
-        st.markmarkdown("- Anillo de switches interconectados")
+        st.markdown("- Anillo de switches interconectados")
         st.markdown("- Derivaciones (spurs) hacia cámaras o pequeños grupos")
         st.markdown("- Soporta redundancia por camino alternativo")
 
@@ -593,7 +593,8 @@ with tab_fttn:
 
     if kmz_file is None:
         st.info("Subí el archivo KMZ para ver el diseño FTTN.")
-        # Aún así podés mostrar el esquema lógico genérico
+
+        # Aun sin KMZ, mostramos el esquema lógico general
         st.markdown("### Esquema lógico FTTN (general)")
         fig_fttn_only = create_topology_diagram("fttn")
         st.plotly_chart(fig_fttn_only, use_container_width=True)
@@ -626,6 +627,7 @@ with tab_fttn:
                     show_switch = st.checkbox("Switches", value=True)
                     show_utp = st.checkbox("Tramos UTP (puntos)", value=True)
 
+                # Filtramos según checkboxes
                 df_filtered = df_kmz.copy()
                 if not show_fibra:
                     df_filtered = df_filtered[df_filtered["category"] != "Fibra"]
