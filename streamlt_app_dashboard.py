@@ -320,7 +320,7 @@ def create_topology_diagram(topology: str) -> go.Figure:
 
 
 # =========================================
-# MAPA EJEMPLO REAL — MENDOZA (P2P, con FOLIUM)
+# MAPA EJEMPLO REAL — MENDOZA (P2P, con FOLIUM y trayectos en L)
 # =========================================
 def build_mendoza_p2p_map_folium() -> folium.Map:
     """
@@ -329,7 +329,9 @@ def build_mendoza_p2p_map_folium() -> folium.Map:
     - Sw 8P ópticas en el mismo edificio
     - 3 switches de campo (Plaza Independencia, Parque Central, Terminal)
       todos a menos de ~1 km del CORE.
-    No requiere tokens ni keys.
+
+    Los enlaces FO se dibujan con trayectos "en L" (por calles),
+    no en línea recta.
     """
 
     # Coordenadas aproximadas del centro de Mendoza
@@ -355,14 +357,14 @@ def build_mendoza_p2p_map_folium() -> folium.Map:
         {
             "name": "Sw Campo A — Plaza Independencia",
             "type": "SW_CAMPO",
-            "lat": center_lat + 0.004,    # ~450 m
+            "lat": center_lat + 0.004,    # ~450 m N
             "lon": center_lon,
             "descripcion": "Switch de campo alimentando 4 cámaras de la plaza"
         },
         {
             "name": "Sw Campo B — Parque Central",
             "type": "SW_CAMPO",
-            "lat": center_lat + 0.005,    # ~550 m
+            "lat": center_lat + 0.005,    # ~550 m N
             "lon": center_lon - 0.006,    # ~650 m O
             "descripcion": "Switch de campo alimentando cámaras del Parque Central"
         },
@@ -403,14 +405,31 @@ def build_mendoza_p2p_map_folium() -> folium.Map:
             tooltip=row["name"],
         ).add_to(m)
 
+    # Helper para dibujar camino tipo "por la calle" (L-shaped)
+    def street_path(lat0, lon0, lat1, lon1, mode="hv"):
+        """
+        mode="hv": primero horizontal (lon), luego vertical (lat)
+        mode="vh": primero vertical, luego horizontal
+        """
+        if mode == "hv":
+            return [
+                [lat0, lon0],
+                [lat0, lon1],  # cambia lon (este-oeste)
+                [lat1, lon1],  # luego lat (norte-sur)
+            ]
+        else:  # "vh"
+            return [
+                [lat0, lon0],
+                [lat1, lon0],  # cambia lat
+                [lat1, lon1],  # luego lon
+            ]
+
     # Enlaces de FO:
-    # CORE -> Sw 8P
-    # Sw 8P -> cada Sw de campo
     core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
     sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
 
-    # CORE → Sw 8P
+    # CORE → Sw 8P (intra-edificio, lo dejamos recto)
     folium.PolyLine(
         locations=[[core["lat"], core["lon"]], [sw_core["lat"], sw_core["lon"]]],
         color="black",
@@ -418,10 +437,26 @@ def build_mendoza_p2p_map_folium() -> folium.Map:
         tooltip="FO CORE → Sw 8P",
     ).add_to(m)
 
-    # Sw 8P → cada Sw de campo
+    # Sw 8P → cada Sw de campo, con trayectos en L
     for _, row in sw_campo.iterrows():
+        # Elegimos modo distinto para que los caminos “doblen” en otro lado
+        if "Plaza Independencia" in row["name"]:
+            mode = "hv"   # primero este-oeste, luego norte-sur
+        elif "Parque Central" in row["name"]:
+            mode = "vh"   # primero norte-sur, luego este-oeste
+        elif "Terminal" in row["name"]:
+            mode = "hv"
+        else:
+            mode = "hv"
+
+        path = street_path(
+            sw_core["lat"], sw_core["lon"],
+            row["lat"], row["lon"],
+            mode=mode
+        )
+
         folium.PolyLine(
-            locations=[[sw_core["lat"], sw_core["lon"]], [row["lat"], row["lon"]]],
+            locations=path,
             color="black",
             weight=3,
             tooltip=f"FO Sw 8P → {row['name']}",
@@ -494,7 +529,7 @@ En este ejemplo se ubican los elementos en la **ciudad de Mendoza**:
 
 Las líneas representan los **enlaces de fibra**:
 - CORE → Sw 8P (intra-edificio).
-- Sw 8P → cada switch de campo (FO urbana).
+- Sw 8P → cada switch de campo (FO urbana), siguiendo trayectos en “L” semejando calles.
 """)
 
     m = build_mendoza_p2p_map_folium()
@@ -615,4 +650,3 @@ with tab_comp:
     st.markdown("- ¿En qué tipo de sitio conviene P2P con switches de campo? (ej: pocos nodos bien concentrados).")
     st.markdown("- ¿Cuándo justifica un anillo? (ej: corredores críticos y necesidad de alta disponibilidad).")
     st.markdown("- ¿Cuándo FTTN equilibra costo, escalabilidad y mantenimiento en CCTV urbano?")
-
