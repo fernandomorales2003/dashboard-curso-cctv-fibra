@@ -495,7 +495,7 @@ with tab_p2p:
         st.markdown("- El CORE concentra el grabador / NVR y routing principal.")
         st.markdown("- Un switch con **8 puertos ópticos** distribuye la troncal.")
         st.markdown("- Cada puerto óptico alimenta un **switch de campo**.")
-        st.markmarkdown("- Desde cada switch de campo salen **2 o más cámaras** por UTP.")
+        st.markdown("- Desde cada switch de campo salen **2 o más cámaras** por UTP.")
 
         fig_p2p = create_topology_diagram("p2p")
         st.plotly_chart(fig_p2p, use_container_width=True)
@@ -565,7 +565,7 @@ with tab_ring:
         )
         st.markdown("**Idea visual:**")
         st.markdown("- Anillo de switches interconectados (fibra).")
-        st.markmarkdown("- Derivaciones hacia cámaras en cada nodo.")
+        st.markdown("- Derivaciones hacia cámaras en cada nodo.")
         st.markdown("- Soporta redundancia por camino alternativo ante cortes.")
 
         fig_ring = create_topology_diagram("ring")
@@ -600,7 +600,7 @@ with tab_fttn:
             "Fibra hasta un **Nodo FTTN** (FOSC + divisor + ONU / switch), "
             "y desde allí distribución hacia varios puntos con UTP o FO secundaria."
         )
-        st.markmarkdown("**Flujo básico:**")
+        st.markdown("**Flujo básico:**")
         st.markdown("- CORE / NVR en un punto central (datacenter).")
         st.markdown("- Fibra troncal hasta nodos FTTN estratégicos.")
         st.markdown("- En cada nodo: elementos de acceso (ONU / switch).")
@@ -652,5 +652,5 @@ with tab_comp:
 
     st.markdown("### Disparadores para la discusión en clase")
     st.markdown("- ¿En qué tipo de sitio conviene P2P con switches de campo? (ej: pocos nodos bien concentrados).")
-    st.markmarkdown("- ¿Cuándo justifica un anillo? (ej: corredores críticos y necesidad de alta disponibilidad).")
+    st.markdown("- ¿Cuándo justifica un anillo? (ej: corredores críticos y necesidad de alta disponibilidad).")
     st.markdown("- ¿Cuándo FTTN equilibra costo, escalabilidad y mantenimiento en CCTV urbano?")
