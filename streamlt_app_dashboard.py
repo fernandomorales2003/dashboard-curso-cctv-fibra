@@ -476,7 +476,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
                 radius=9,
                 color=node_color(row["type"]),
                 fill=True,
-                fill_color=node_color(row["type"]],
+                fill_color=node_color(row["type"]),
                 fill_opacity=0.9,
                 popup=f"{row['name']}<br>{row['descripcion']}",
                 tooltip=row["name"],
@@ -486,9 +486,9 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
                 location=[row["mid_lat"], row["mid_lon"]],
                 number_of_sides=4,
                 radius=9,
-                color=node_color(row["type"]],
+                color=node_color(row["type"]),
                 fill=True,
-                fill_color=node_color(row["type"]],
+                fill_color=node_color(row["type"]),
                 fill_opacity=0.9,
                 popup=f"{row['name']}<br>{row['descripcion']}",
                 tooltip=row["name"],
@@ -724,7 +724,7 @@ with tab_ring:
         st.markdown("**Idea visual:**")
         st.markdown("- Anillo de switches interconectados (fibra en color FICOM).")
         st.markdown("- Derivaciones hacia cámaras en cada nodo (UTP).")
-        st.markdown("- Soporta redundancia por camino alternativo ante cortes.")
+        st.markmarkdown("- Soporta redundancia por camino alternativo ante cortes.")
 
         fig_ring = create_topology_diagram("ring")
         st.plotly_chart(fig_ring, use_container_width=True)
