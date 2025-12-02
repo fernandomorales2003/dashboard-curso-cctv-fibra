@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 import folium
 import streamlit.components.v1 as components
+
 import osmnx as ox
 import networkx as nx
 from folium.features import RegularPolygonMarker
@@ -15,9 +16,9 @@ st.set_page_config(
     page_title="DASHBOARD DISEÑO CCTV — Topologías de Fibra",
     layout="wide"
 )
-st.warning("VERSIÓN 3 — FIBRAS FICOM + SW CUADRADOS", icon="⚙️")
 
 st.title("DASHBOARD DISEÑO CCTV")
+st.warning("VERSIÓN 3 — FIBRAS FICOM + SW CUADRADOS", icon="⚙️")
 st.caption("Visualización didáctica de topologías: Punto a Punto, Anillo y FTTN")
 
 st.markdown("""
@@ -538,33 +539,6 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
 
     return m
 
-for _, row in df_nodes.iterrows():
-    if row["type"] == "CORE":
-        # NVR / CORE círculo rojo GRANDE
-        folium.CircleMarker(
-            location=[row["lat"], row["lon"]],
-            radius=15,
-            color="yellow",
-            fill=True,
-            fill_color="yellow",
-            fill_opacity=0.9,
-            popup=f"CORE TEST<br>{row['descripcion']}",
-            tooltip="CORE TEST",
-        ).add_to(m)
-
-    else:
-        # TODOS los demás como cuadrados enormes fucsia
-        RegularPolygonMarker(
-            location=[row["lat"], row["lon"]],
-            number_of_sides=4,
-            radius=15,
-            color="fuchsia",
-            fill=True,
-            fill_color="fuchsia",
-            fill_opacity=0.9,
-            popup=f"SW TEST<br>{row['name']}",
-            tooltip="SW TEST",
-        ).add_to(m)
 
 # =========================================
 # TABS PRINCIPALES
