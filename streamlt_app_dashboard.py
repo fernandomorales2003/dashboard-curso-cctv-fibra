@@ -329,12 +329,6 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     Mapa de ejemplo en la ciudad de Mendoza (P2P) usando:
     - OSMnx para obtener la red vial real y calcular rutas por las calles.
     - Folium + OpenStreetMap para mostrar el mapa.
-
-    Nodos:
-    - CORE / NVR en Microcentro
-    - Sw 8P ópticas en el mismo edificio
-    - 3 switches de campo (Plaza Independencia, Parque Central, Terminal)
-      todos a menos de ~1 km del CORE.
     """
 
     # Coordenadas aproximadas del centro de Mendoza
@@ -389,14 +383,20 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
 
     df_nodes = pd.DataFrame(nodes)
 
-    # Mapa base con la red vial dibujada
-    m = ox.folium.plot_graph_folium(
-        G,
-        weight=1,
-        color="#888888",
-        opacity=0.6,
-        tiles="OpenStreetMap"
-    )
+    # === Mapa base con la red vial dibujada ===
+    # En osmnx actual la función es ox.plot_graph_folium (no ox.folium.plot_graph_folium)
+    try:
+        m = ox.plot_graph_folium(
+            G,
+            tiles="OpenStreetMap",
+            edge_width=1,
+            edge_color="#888888",
+            edge_opacity=0.6,
+            node_size=0,          # no dibujamos nodos de la red vial
+        )
+    except TypeError:
+        # Por si la versión es más vieja y no acepta esos kwargs
+        m = ox.plot_graph_folium(G, tiles="OpenStreetMap")
 
     # Colores por tipo de nodo
     def node_color(t):
@@ -408,7 +408,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
             return "green"
         return "gray"
 
-    # Marcadores de nodos
+    # Marcadores de nodos (CORE, Sw 8P, Sw campo)
     for _, row in df_nodes.iterrows():
         folium.CircleMarker(
             location=[row["lat"], row["lon"]],
@@ -446,7 +446,7 @@ def build_mendoza_p2p_map_osmnx() -> folium.Map:
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
     sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
 
-    # CORE → Sw 8P (intra-edificio, lo dejamos recto)
+    # CORE → Sw 8P (intra-edificio, recto)
     folium.PolyLine(
         locations=[[core["lat"], core["lon"]], [sw_core["lat"], sw_core["lon"]]],
         color="black",
