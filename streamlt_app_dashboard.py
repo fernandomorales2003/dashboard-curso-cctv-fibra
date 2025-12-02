@@ -8,6 +8,7 @@ import streamlit.components.v1 as components
 import osmnx as ox
 import networkx as nx
 from folium.features import RegularPolygonMarker
+from branca.element import Element
 
 # =========================================
 # CONFIGURACIÓN GENERAL DEL DASHBOARD
@@ -18,7 +19,7 @@ st.set_page_config(
 )
 
 st.title("DASHBOARD DISEÑO CCTV")
-st.warning("VERSIÓN 4 — FIBRAS FICOM + SW CUADRADOS + RANDOM NODOS", icon="⚙️")
+st.warning("VERSIÓN 5 — FIBRAS FICOM + SW CUADRADOS + RANDOM NODOS + LEYENDA", icon="⚙️")
 st.caption("Visualización didáctica de topologías: Punto a Punto, Anillo y FTTN")
 
 st.markdown("""
@@ -577,7 +578,7 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
     sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
 
-    # CORE → Sw 8P (intra-edificio, recto y FICOM) – lo dejamos como tramo corto interno
+    # CORE → Sw 8P (intra-edificio, recto y FICOM)
     folium.PolyLine(
         locations=[[core["lat"], core["lon"]], [sw_core["lat"], sw_core["lon"]]],
         color=FICOM_COLOR,
@@ -657,6 +658,67 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
             tooltip=f"Cámara IP 2 asociada a {row['name']}",
         ).add_to(m)
 
+    # ------------------------------------
+    # LEYENDA INFERIOR DERECHA (REFERENCIAS + DISTANCIAS)
+    # ------------------------------------
+    legend_html = """
+    <div style="
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        background-color: rgba(0, 0, 0, 0.75);
+        padding: 10px 14px;
+        border-radius: 8px;
+        color: #ffffff;
+        font-size: 11px;
+        max-width: 230px;
+    ">
+      <div style="font-weight: bold; margin-bottom: 4px;">Referencias</div>
+      <div style="margin-bottom: 4px;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:red;margin-right:4px;"></span>
+        CORE / NVR
+      </div>
+      <div style="margin-bottom: 4px;">
+        <span style="display:inline-block;width:10px;height:10px;background:orange;margin-right:4px;"></span>
+        Sw troncal TR01-SW00-DC-8P
+      </div>
+      <div style="margin-bottom: 4px;">
+        <span style="display:inline-block;width:10px;height:10px;background:lime;margin-right:4px;"></span>
+        Sw de campo TR01-SW0x-ND0x
+      </div>
+      <div style="margin-bottom: 4px;">
+        <span style="display:inline-block;width:22px;border-bottom:3px solid """ + FICOM_COLOR + """;margin-right:4px;"></span>
+        Fibra óptica TR01
+      </div>
+      <div style="margin-bottom: 4px;">
+        <span style="
+            display:inline-block;
+            width: 0;
+            height: 0;
+            border-left: 10px solid yellow;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            margin-right:4px;
+        "></span>
+        Cámara IP
+      </div>
+      <hr style="border:0;border-top:1px solid #777;margin:4px 0;">
+      <div style="font-weight: bold; margin-bottom: 2px;">Longitud troncales</div>
+    """
+
+    if troncal_info:
+        for info in troncal_info:
+            dist_m = info["distance_m"]
+            legend_html += f"<div>{info['name']}: {dist_m:,.0f} m</div>"
+    else:
+        legend_html += "<div>Sin datos de troncales</div>"
+
+    legend_html += "</div>"
+
+    legend = Element(legend_html)
+    m.get_root().html.add_child(legend)
+
     return m, troncal_info
 
 
@@ -727,7 +789,7 @@ para discutir distintas variantes de diseño.
     )
     components.html(m._repr_html_(), height=500)
 
-    # Mostrar resumen de distancias de cada troncal
+    # Además dejamos un resumen textual opcional debajo
     st.markdown("### Distancia de cada troncal FO (TR01-SW00-DC-8P → Sw Campo)")
     if troncal_info:
         for info in troncal_info:
@@ -790,7 +852,7 @@ with tab_fttn:
         st.markdown("**Flujo básico:**")
         st.markdown("- CORE / NVR en un punto central (datacenter).")
         st.markdown("- Fibra troncal hasta nodos FTTN estratégicos.")
-        st.markdown("- En cada nodo: elementos de acceso (ONU / switch).")
+        st.markmarkdown("- En cada nodo: elementos de acceso (ONU / switch).")
         st.markdown("- Desde el nodo, cámaras cercanas por UTP o FO corta.")
 
         fig_fttn = create_topology_diagram("fttn")
