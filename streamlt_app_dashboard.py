@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import pydeck as pdk
+import folium
+import streamlit.components.v1 as components
 
 # =========================================
 # CONFIGURACIÓN GENERAL DEL DASHBOARD
@@ -319,22 +320,23 @@ def create_topology_diagram(topology: str) -> go.Figure:
 
 
 # =========================================
-# MAPA EJEMPLO REAL — MENDOZA (P2P)
+# MAPA EJEMPLO REAL — MENDOZA (P2P, con FOLIUM)
 # =========================================
-def build_mendoza_p2p_map() -> pdk.Deck:
+def build_mendoza_p2p_map_folium() -> folium.Map:
     """
-    Mapa de ejemplo en la ciudad de Mendoza (P2P):
+    Mapa de ejemplo en la ciudad de Mendoza (P2P) usando Folium + OpenStreetMap:
     - CORE / NVR en Microcentro
     - Sw 8P ópticas en el mismo edificio
     - 3 switches de campo (Plaza Independencia, Parque Central, Terminal)
       todos a menos de ~1 km del CORE.
+    No requiere tokens ni keys.
     """
 
     # Coordenadas aproximadas del centro de Mendoza
     center_lat = -32.8895
     center_lon = -68.8458
 
-    # NODOS (coordenadas aproximadas y distancias < ~1km)
+    # NODOS (coordenadas aprox y distancias < ~1km)
     nodes = [
         {
             "name": "CORE / NVR",
@@ -365,7 +367,7 @@ def build_mendoza_p2p_map() -> pdk.Deck:
             "descripcion": "Switch de campo alimentando cámaras del Parque Central"
         },
         {
-            "name": "Sw Campo C — Terminal",
+            "name": "Sw Campo C — Terminal de Ómnibus",
             "type": "SW_CAMPO",
             "lat": center_lat - 0.004,    # ~450 m S
             "lon": center_lon + 0.006,    # ~650 m E
@@ -375,88 +377,57 @@ def build_mendoza_p2p_map() -> pdk.Deck:
 
     df_nodes = pd.DataFrame(nodes)
 
-    # Colores por tipo
+    # Mapa base OSM
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=14, tiles="OpenStreetMap")
+
+    # Colores por tipo de nodo
     def node_color(t):
         if t == "CORE":
-            return [0, 0, 0]          # negro
+            return "black"
         if t == "SW_CORE":
-            return [0, 100, 200]      # azul
+            return "blue"
         if t == "SW_CAMPO":
-            return [0, 180, 0]        # verde
-        return [120, 120, 120]
+            return "green"
+        return "gray"
 
-    df_nodes["color"] = df_nodes["type"].apply(node_color)
+    # Marcadores de nodos
+    for _, row in df_nodes.iterrows():
+        folium.CircleMarker(
+            location=[row["lat"], row["lon"]],
+            radius=7,
+            color=node_color(row["type"]),
+            fill=True,
+            fill_color=node_color(row["type"]),
+            fill_opacity=0.9,
+            popup=f"{row['name']}<br>{row['descripcion']}",
+            tooltip=row["name"],
+        ).add_to(m)
 
-    # LINKS (fibra)
+    # Enlaces de FO:
     # CORE -> Sw 8P
+    # Sw 8P -> cada Sw de campo
     core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
     sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
 
-    links = []
-
     # CORE → Sw 8P
-    links.append({
-        "path": [
-            [core["lon"], core["lat"]],
-            [sw_core["lon"], sw_core["lat"]],
-        ]
-    })
+    folium.PolyLine(
+        locations=[[core["lat"], core["lon"]], [sw_core["lat"], sw_core["lon"]]],
+        color="black",
+        weight=4,
+        tooltip="FO CORE → Sw 8P",
+    ).add_to(m)
 
     # Sw 8P → cada Sw de campo
     for _, row in sw_campo.iterrows():
-        links.append({
-            "path": [
-                [sw_core["lon"], sw_core["lat"]],
-                [row["lon"], row["lat"]],
-            ]
-        })
+        folium.PolyLine(
+            locations=[[sw_core["lat"], sw_core["lon"]], [row["lat"], row["lon"]]],
+            color="black",
+            weight=3,
+            tooltip=f"FO Sw 8P → {row['name']}",
+        ).add_to(m)
 
-    df_links = pd.DataFrame(links)
-
-    # Vista inicial
-    view_state = pdk.ViewState(
-        latitude=center_lat,
-        longitude=center_lon,
-        zoom=14,
-        pitch=45,
-        bearing=0,
-    )
-
-    # Capas
-    # Fibra como PathLayer
-    fiber_layer = pdk.Layer(
-        "PathLayer",
-        df_links,
-        get_path="path",
-        get_color=[0, 0, 0],
-        width_scale=2,
-        width_min_pixels=2,
-        get_width=4,
-    )
-
-    # Nodos como Scatterplot
-    nodes_layer = pdk.Layer(
-        "ScatterplotLayer",
-        df_nodes,
-        get_position=["lon", "lat"],
-        get_fill_color="color",
-        get_radius=35,
-        pickable=True,
-    )
-
-    tooltip = {
-        "html": "<b>{name}</b><br/>{descripcion}",
-        "style": {"backgroundColor": "white", "color": "black"}
-    }
-
-    deck = pdk.Deck(
-        map_style="mapbox://styles/mapbox/light-v9",
-        initial_view_state=view_state,
-        layers=[fiber_layer, nodes_layer],
-        tooltip=tooltip,
-    )
-    return deck
+    return m
 
 
 # =========================================
@@ -526,8 +497,8 @@ Las líneas representan los **enlaces de fibra**:
 - Sw 8P → cada switch de campo (FO urbana).
 """)
 
-    deck_mza = build_mendoza_p2p_map()
-    st.pydeck_chart(deck_mza)
+    m = build_mendoza_p2p_map_folium()
+    components.html(m._repr_html_(), height=500)
 
     st.markdown("""
 **Actividad sugerida para los alumnos:**
@@ -640,7 +611,7 @@ with tab_comp:
     st.markdown("### Tabla comparativa")
     st.dataframe(df_comp, use_container_width=True)
 
-    st.markdown("### Disparadores para la discusión en clase")
+    st.markmarkdown("### Disparadores para la discusión en clase")
     st.markdown("- ¿En qué tipo de sitio conviene P2P con switches de campo? (ej: pocos nodos bien concentrados).")
     st.markdown("- ¿Cuándo justifica un anillo? (ej: corredores críticos y necesidad de alta disponibilidad).")
     st.markdown("- ¿Cuándo FTTN equilibra costo, escalabilidad y mantenimiento en CCTV urbano?")
