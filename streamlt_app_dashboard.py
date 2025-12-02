@@ -4,7 +4,6 @@ import numpy as np
 import plotly.graph_objects as go
 import folium
 import streamlit.components.v1 as components
-
 import osmnx as ox
 import networkx as nx
 from folium.features import RegularPolygonMarker
