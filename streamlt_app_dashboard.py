@@ -5,6 +5,7 @@ import zipfile
 from xml.etree import ElementTree as ET
 import unicodedata
 import pydeck as pdk
+import plotly.graph_objects as go
 
 # =========================================
 # CONFIGURACIÓN GENERAL DEL DASHBOARD
@@ -26,6 +27,240 @@ comparando tres modelos de implementación de fibra óptica:
 """)
 
 st.markdown("---")
+
+
+# =========================================
+# FUNCIÓN DIAGRAMAS LÓGICOS (PLOTLY)
+# =========================================
+def create_topology_diagram(topology: str) -> go.Figure:
+    """
+    Genera un diagrama esquemático simple para:
+      - 'p2p'
+      - 'ring'
+      - 'fttn'
+    """
+    topo = topology.lower()
+
+    if topo == "p2p":
+        # Nodo central + cámaras alrededor
+        core_x, core_y = 0.0, 0.5
+        cam_positions = [
+            (-0.6, 0.9),
+            (-0.8, 0.4),
+            (-0.5, 0.0),
+            (0.5, 0.9),
+            (0.8, 0.4),
+            (0.5, 0.0),
+        ]
+
+        fig = go.Figure()
+
+        # Enlaces (líneas) desde el CORE a cada cámara
+        for i, (x, y) in enumerate(cam_positions, start=1):
+            fig.add_trace(go.Scatter(
+                x=[core_x, x],
+                y=[core_y, y],
+                mode="lines",
+                line=dict(width=2),
+                showlegend=False
+            ))
+            fig.add_trace(go.Scatter(
+                x=[x],
+                y=[y],
+                mode="markers+text",
+                marker=dict(size=14),
+                text=[f"Cam {i}"],
+                textposition="top center",
+                showlegend=False
+            ))
+
+        # CORE
+        fig.add_trace(go.Scatter(
+            x=[core_x],
+            y=[core_y],
+            mode="markers+text",
+            marker=dict(size=18, symbol="square"),
+            text=["CORE / NVR"],
+            textposition="bottom center",
+            showlegend=False
+        ))
+
+        fig.update_layout(
+            title="Topología Punto a Punto (P2P)",
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            plot_bgcolor="white",
+            margin=dict(l=20, r=20, t=40, b=20),
+            height=350
+        )
+        fig.update_yaxes(scaleanchor="x", scaleratio=1)
+        return fig
+
+    if topo == "ring":
+        # 6 switches en círculo
+        n = 6
+        radius = 0.6
+        angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
+
+        switch_x = radius * np.cos(angles)
+        switch_y = radius * np.sin(angles) + 0.1  # un poquito arriba
+
+        fig = go.Figure()
+
+        # Enlaces del anillo (líneas entre switches)
+        for i in range(n):
+            x0, y0 = switch_x[i], switch_y[i]
+            x1, y1 = switch_x[(i + 1) % n], switch_y[(i + 1) % n]
+            fig.add_trace(go.Scatter(
+                x=[x0, x1],
+                y=[y0, y1],
+                mode="lines",
+                line=dict(width=2),
+                showlegend=False
+            ))
+
+        # Switches
+        fig.add_trace(go.Scatter(
+            x=switch_x,
+            y=switch_y,
+            mode="markers+text",
+            marker=dict(size=16, symbol="square"),
+            text=[f"Sw {i+1}" for i in range(n)],
+            textposition="top center",
+            showlegend=False
+        ))
+
+        # Cámaras “colgando” de cada switch
+        cam_offset = 0.25
+        for i in range(n):
+            sx, sy = switch_x[i], switch_y[i]
+            angle = angles[i]
+            cx = sx * (1 + cam_offset)
+            cy = sy * (1 + cam_offset)
+            fig.add_trace(go.Scatter(
+                x=[sx, cx],
+                y=[sy, cy],
+                mode="lines",
+                line=dict(width=1.5),
+                showlegend=False
+            ))
+            fig.add_trace(go.Scatter(
+                x=[cx],
+                y=[cy],
+                mode="markers+text",
+                marker=dict(size=12),
+                text=[f"Cam {i+1}"],
+                textposition="top center",
+                showlegend=False
+            ))
+
+        fig.update_layout(
+            title="Topología en Anillo",
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            plot_bgcolor="white",
+            margin=dict(l=20, r=20, t=40, b=20),
+            height=350
+        )
+        fig.update_yaxes(scaleanchor="x", scaleratio=1)
+        return fig
+
+    if topo == "fttn":
+        fig = go.Figure()
+
+        # CORE a la izquierda
+        core_x, core_y = -0.9, 0.5
+        fig.add_trace(go.Scatter(
+            x=[core_x],
+            y=[core_y],
+            mode="markers+text",
+            marker=dict(size=18, symbol="square"),
+            text=["CORE / NVR"],
+            textposition="bottom center",
+            showlegend=False
+        ))
+
+        # Nodo FTTN al centro
+        node_x, node_y = -0.3, 0.5
+        fig.add_trace(go.Scatter(
+            x=[node_x],
+            y=[node_y],
+            mode="markers+text",
+            marker=dict(size=18, symbol="diamond"),
+            text=["Nodo FTTN\n(FOSC+ONU)"],
+            textposition="bottom center",
+            showlegend=False
+        ))
+
+        # Enlace CORE → Nodo
+        fig.add_trace(go.Scatter(
+            x=[core_x, node_x],
+            y=[core_y, node_y],
+            mode="lines",
+            line=dict(width=3),
+            showlegend=False
+        ))
+
+        # 3 switches a la derecha
+        sw_positions = [
+            (0.3, 0.8),
+            (0.3, 0.5),
+            (0.3, 0.2),
+        ]
+
+        for i, (sx, sy) in enumerate(sw_positions, start=1):
+            # Enlace nodo → switch
+            fig.add_trace(go.Scatter(
+                x=[node_x, sx],
+                y=[node_y, sy],
+                mode="lines",
+                line=dict(width=2),
+                showlegend=False
+            ))
+            # Switch
+            fig.add_trace(go.Scatter(
+                x=[sx],
+                y=[sy],
+                mode="markers+text",
+                marker=dict(size=16, symbol="square"),
+                text=[f"Sw {i}"],
+                textposition="bottom center",
+                showlegend=False
+            ))
+            # 2 cámaras colgando de cada switch
+            cam1 = (sx + 0.3, sy + 0.15)
+            cam2 = (sx + 0.3, sy - 0.15)
+            for j, (cx, cy) in enumerate([cam1, cam2], start=1):
+                fig.add_trace(go.Scatter(
+                    x=[sx, cx],
+                    y=[sy, cy],
+                    mode="lines",
+                    line=dict(width=1.5),
+                    showlegend=False
+                ))
+                fig.add_trace(go.Scatter(
+                    x=[cx],
+                    y=[cy],
+                    mode="markers+text",
+                    marker=dict(size=12),
+                    text=[f"Cam {i}.{j}"],
+                    textposition="top center",
+                    showlegend=False
+                ))
+
+        fig.update_layout(
+            title="Topología FTTN (Fibra hasta el Nodo)",
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            plot_bgcolor="white",
+            margin=dict(l=20, r=20, t=40, b=20),
+            height=350
+        )
+        fig.update_yaxes(scaleanchor="x", scaleratio=1)
+        return fig
+
+    # Fallback si algo raro se pasa
+    return go.Figure()
 
 
 # =========================================
@@ -148,7 +383,7 @@ def parse_kmz_points_lines(kmz_file) -> pd.DataFrame:
 
     df["category"] = df.apply(categorize, axis=1)
 
-    # Zona interna / externa en base al path original (sin strip)
+    # Zona interna / externa en base al path original
     def get_zone(path: str) -> str:
         path = path or ""
         if "Poligono interno" in path:
@@ -179,7 +414,6 @@ def build_pydeck_map(df: pd.DataFrame) -> pdk.Deck:
       - ScatterLayer para cámaras, switches, nodos FTTN, UTP
     """
     if df.empty:
-        # Algo mínimo si no hay datos
         return pdk.Deck()
 
     # Vista inicial centrada en el promedio
@@ -201,7 +435,6 @@ def build_pydeck_map(df: pd.DataFrame) -> pdk.Deck:
     # ---------------------------
     df_fibra_pts = df[(df["category"] == "Fibra") & (df["geom_type"] == "LineStringPoint")].copy()
     if not df_fibra_pts.empty:
-        # Agrupamos por nombre+cadena para formar las rutas
         df_paths = (
             df_fibra_pts
             .sort_values(["name", "cadena", "segment_index"])
@@ -224,7 +457,7 @@ def build_pydeck_map(df: pd.DataFrame) -> pdk.Deck:
     # ---------------------------
     # PUNTOS: cámaras, switches, nodos, UTP
     # ---------------------------
-    def add_scatter_layer(df_cat, color, radius=5, name=""):
+    def add_scatter_layer(df_cat, color, radius=5):
         if df_cat.empty:
             return None
         return pdk.Layer(
@@ -243,10 +476,10 @@ def build_pydeck_map(df: pd.DataFrame) -> pdk.Deck:
     df_nodos = df_points[df_points["category"] == "Nodo FTTN"]
     df_utp = df_points[df_points["category"] == "UTP"]
 
-    layer_cams = add_scatter_layer(df_cams, [0, 128, 255], radius=8, name="Cámaras")     # azul
-    layer_switch = add_scatter_layer(df_switch, [255, 165, 0], radius=8, name="Switches") # naranja
-    layer_nodos = add_scatter_layer(df_nodos, [0, 200, 0], radius=9, name="Nodos FTTN")   # verde
-    layer_utp = add_scatter_layer(df_utp, [150, 150, 150], radius=5, name="UTP")          # gris
+    layer_cams = add_scatter_layer(df_cams, [0, 128, 255], radius=8)      # azul
+    layer_switch = add_scatter_layer(df_switch, [255, 165, 0], radius=8)  # naranja
+    layer_nodos = add_scatter_layer(df_nodos, [0, 200, 0], radius=9)      # verde
+    layer_utp = add_scatter_layer(df_utp, [150, 150, 150], radius=5)      # gris
 
     for lyr in [layer_cams, layer_switch, layer_nodos, layer_utp]:
         if lyr is not None:
@@ -291,11 +524,9 @@ with tab_p2p:
         st.markdown("- Centro: NVR / Core")
         st.markdown("- Ramas: enlaces directos de fibra hacia cada punto remoto")
         st.markdown("- Últimos metros: UTP hacia la cámara (si aplica)")
-        st.image(
-            "https://via.placeholder.com/600x300.png?text=Esquema+Punto+a+Punto",
-            caption="Placeholder de diagrama Punto a Punto",
-            use_column_width=True
-        )
+
+        fig_p2p = create_topology_diagram("p2p")
+        st.plotly_chart(fig_p2p, use_container_width=True)
 
     with col2:
         st.markdown("### Indicadores P2P (ejemplo)")
@@ -307,7 +538,6 @@ with tab_p2p:
         st.success("✔ Arquitectura simple, fácil de entender")
         st.warning("✖ Mayor consumo de fibra y puertos en el core")
         st.warning("✖ Escalabilidad limitada en grandes sitios")
-
 
 # =========================================================
 # TAB 2 — ANILLO
@@ -324,14 +554,12 @@ with tab_ring:
             "desde los cuales salen derivaciones hacia las cámaras."
         )
         st.markdown("**Idea visual:**")
-        st.markdown("- Anillo de switches interconectados")
+        st.markmarkdown("- Anillo de switches interconectados")
         st.markdown("- Derivaciones (spurs) hacia cámaras o pequeños grupos")
         st.markdown("- Soporta redundancia por camino alternativo")
-        st.image(
-            "https://via.placeholder.com/600x300.png?text=Esquema+Anillo",
-            caption="Placeholder de diagrama en Anillo",
-            use_column_width=True
-        )
+
+        fig_ring = create_topology_diagram("ring")
+        st.plotly_chart(fig_ring, use_container_width=True)
 
     with col2:
         st.markdown("### Indicadores Anillo (ejemplo)")
@@ -343,7 +571,6 @@ with tab_ring:
         st.success("✔ Mejor redundancia ante cortes de fibra")
         st.success("✔ Mejor uso de fibra que P2P en sitios grandes")
         st.warning("✖ Mayor complejidad de diseño y configuración")
-
 
 # =========================================================
 # TAB 3 — FTTN (CCTV-IP) — USANDO KMZ + PYDECK
@@ -366,6 +593,10 @@ with tab_fttn:
 
     if kmz_file is None:
         st.info("Subí el archivo KMZ para ver el diseño FTTN.")
+        # Aún así podés mostrar el esquema lógico genérico
+        st.markdown("### Esquema lógico FTTN (general)")
+        fig_fttn_only = create_topology_diagram("fttn")
+        st.plotly_chart(fig_fttn_only, use_container_width=True)
     else:
         # Parseamos el KMZ → DataFrame
         df_kmz = parse_kmz_points_lines(kmz_file)
@@ -379,7 +610,7 @@ with tab_fttn:
                 st.dataframe(df_kmz.head(50), use_container_width=True)
 
             # ==========================
-            # FILA 1 — MAPA (PYDECK) + RESUMEN
+            # FILA 1 — MAPA (PYDECK) + ESQUEMA / KPIs
             # ==========================
             col_map, col_scheme = st.columns([2, 1], gap="large")
 
@@ -395,10 +626,7 @@ with tab_fttn:
                     show_switch = st.checkbox("Switches", value=True)
                     show_utp = st.checkbox("Tramos UTP (puntos)", value=True)
 
-                # Filtramos según checkboxes, pero respetando geom_type para la construcción del mapa
                 df_filtered = df_kmz.copy()
-
-                # Si desactivás fibra, marcamos category != Fibra
                 if not show_fibra:
                     df_filtered = df_filtered[df_filtered["category"] != "Fibra"]
                 if not show_nodos:
@@ -415,8 +643,12 @@ with tab_fttn:
                 st.pydeck_chart(deck)
 
             with col_scheme:
-                st.markdown("### Esquema lógico FTTN (resumen)")
+                st.markdown("### Esquema lógico FTTN")
 
+                fig_fttn = create_topology_diagram("fttn")
+                st.plotly_chart(fig_fttn, use_container_width=True)
+
+                # KPIs básicos desde el KMZ
                 total_cams = int((df_kmz["category"] == "Camara").sum())
                 cams_int = int(((df_kmz["category"] == "Camara") &
                                 (df_kmz["zone"] == "Poligono interno")).sum())
@@ -474,7 +706,6 @@ with tab_fttn:
                     .reset_index(name="Puntos UTP")
                 )
                 st.dataframe(utp_by_zone, use_container_width=True)
-
 
 # =========================================================
 # TAB 4 — COMPARATIVO GLOBAL
