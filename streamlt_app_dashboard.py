@@ -19,7 +19,10 @@ st.set_page_config(
 )
 
 st.title("DASHBOARD DISEÑO CCTV")
-st.warning("VERSIÓN 5 — FIBRAS FICOM + SW CUADRADOS + RANDOM NODOS + LEYENDA", icon="⚙️")
+st.warning(
+    "VERSIÓN 6 — Topologías + Unifilar colores FO + Mapa real + Leyenda",
+    icon="⚙️"
+)
 st.caption("Visualización didáctica de topologías: Punto a Punto, Anillo y FTTN")
 
 st.markdown("""
@@ -35,26 +38,30 @@ st.markdown("---")
 # Color base FICOM para fibras
 FICOM_COLOR = "#4FB4CA"
 
+# Paleta estándar de código de colores de fibras (primeras fibras)
+FIBER_STANDARD_COLORS = [
+    ("Fibra 1", "Azul",   "#0000FF"),
+    ("Fibra 2", "Naranja", "#FF7F00"),
+    ("Fibra 3", "Verde",   "#008000"),
+    # Si luego sumás más troncales podés seguir:
+    # ("Fibra 4", "Marrón", "#A52A2A"),
+    # ("Fibra 5", "Pizarra", "#708090"),
+    # ...
+]
+
 
 # =========================================
-# FUNCIÓN DIAGRAMAS LÓGICOS (PLOTLY)
+# FUNCIÓN DIAGRAMA LÓGICO GENERAL (PLOTLY)
 # =========================================
 def create_topology_diagram(topology: str) -> go.Figure:
-    """
-    Genera un diagrama esquemático simple para:
-      - 'p2p'
-      - 'ring'
-      - 'fttn'
-    """
     topo = topology.lower()
 
     # -------------------------------
-    # PUNTO A PUNTO (con switches de campo)
+    # PUNTO A PUNTO
     # -------------------------------
     if topo == "p2p":
         fig = go.Figure()
 
-        # CORE / NVR (círculo rojo) a la izquierda
         core_x, core_y = -0.9, 0.5
         fig.add_trace(go.Scatter(
             x=[core_x],
@@ -66,7 +73,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # Switch óptico de 8 bocas (cuadrado naranja) al medio
         sw_core_x, sw_core_y = -0.3, 0.5
         fig.add_trace(go.Scatter(
             x=[sw_core_x],
@@ -78,7 +84,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # Enlace CORE → Sw 8P (fibra FICOM)
         fig.add_trace(go.Scatter(
             x=[core_x, sw_core_x],
             y=[core_y, sw_core_y],
@@ -87,7 +92,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # Switches de campo (cuadrados verdes, 1 entrada óptica, varias salidas eléctricas)
         field_switches = [
             {"name": "TR01-SW01\nND01", "x": 0.3, "y": 0.8},
             {"name": "TR01-SW02\nND02", "x": 0.3, "y": 0.5},
@@ -99,7 +103,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
         for fs in field_switches:
             sx, sy = fs["x"], fs["y"]
 
-            # Fibra óptica Sw 8P → Sw Campo (FICOM)
             fig.add_trace(go.Scatter(
                 x=[sw_core_x, sx],
                 y=[sw_core_y, sy],
@@ -108,7 +111,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 showlegend=False
             ))
 
-            # Switch de campo (cuadrado verde)
             fig.add_trace(go.Scatter(
                 x=[sx],
                 y=[sy],
@@ -119,13 +121,11 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 showlegend=False
             ))
 
-            # Desde cada Sw de campo, 2 cámaras (UTP eléctrico)
             cam_positions = [
                 (sx + 0.35, sy + 0.12),
                 (sx + 0.35, sy - 0.12),
             ]
             for (cx, cy) in cam_positions:
-                # Enlace eléctrico (UTP) – gris punteado
                 fig.add_trace(go.Scatter(
                     x=[sx, cx],
                     y=[sy, cy],
@@ -133,7 +133,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
                     line=dict(width=1.8, dash="dot", color="gray"),
                     showlegend=False
                 ))
-                # Cámara (triángulo)
                 fig.add_trace(go.Scatter(
                     x=[cx],
                     y=[cy],
@@ -160,17 +159,15 @@ def create_topology_diagram(topology: str) -> go.Figure:
     # ANILLO
     # -------------------------------
     if topo == "ring":
-        # 6 switches en círculo
         n = 6
         radius = 0.6
         angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
 
         switch_x = radius * np.cos(angles)
-        switch_y = radius * np.sin(angles) + 0.1  # un poquito arriba
+        switch_y = radius * np.sin(angles) + 0.1
 
         fig = go.Figure()
 
-        # Enlaces del anillo (fibra FICOM)
         for i in range(n):
             x0, y0 = switch_x[i], switch_y[i]
             x1, y1 = switch_x[(i + 1) % n], switch_y[(i + 1) % n]
@@ -182,7 +179,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 showlegend=False
             ))
 
-        # Switches (cuadrados azules) – nombres genéricos TR01-SW01..06
         fig.add_trace(go.Scatter(
             x=switch_x,
             y=switch_y,
@@ -193,7 +189,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # Cámaras “colgando” de cada switch (UTP)
         cam_offset = 0.25
         for i in range(n):
             sx, sy = switch_x[i], switch_y[i]
@@ -233,7 +228,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
     if topo == "fttn":
         fig = go.Figure()
 
-        # CORE / NVR círculo rojo
         core_x, core_y = -0.9, 0.5
         fig.add_trace(go.Scatter(
             x=[core_x],
@@ -245,7 +239,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # Nodo FTTN cuadrado azul
         node_x, node_y = -0.3, 0.5
         fig.add_trace(go.Scatter(
             x=[node_x],
@@ -257,7 +250,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # Enlace CORE → Nodo (fibra FICOM)
         fig.add_trace(go.Scatter(
             x=[core_x, node_x],
             y=[core_y, node_y],
@@ -266,7 +258,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
             showlegend=False
         ))
 
-        # 3 switches a la derecha (cuadrados verdes)
         sw_positions = [
             (0.3, 0.8),
             (0.3, 0.5),
@@ -274,7 +265,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
         ]
 
         for i, (sx, sy) in enumerate(sw_positions, start=1):
-            # Enlace nodo → switch (fibra FICOM)
             fig.add_trace(go.Scatter(
                 x=[node_x, sx],
                 y=[node_y, sy],
@@ -282,7 +272,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 line=dict(width=2, color=FICOM_COLOR),
                 showlegend=False
             ))
-            # Switch
             fig.add_trace(go.Scatter(
                 x=[sx],
                 y=[sy],
@@ -292,7 +281,6 @@ def create_topology_diagram(topology: str) -> go.Figure:
                 textposition="bottom center",
                 showlegend=False
             ))
-            # 2 cámaras colgando de cada switch (UTP corto)
             cam1 = (sx + 0.3, sy + 0.15)
             cam2 = (sx + 0.3, sy - 0.15)
             for j, (cx, cy) in enumerate([cam1, cam2], start=1):
@@ -324,50 +312,133 @@ def create_topology_diagram(topology: str) -> go.Figure:
         fig.update_yaxes(scaleanchor="x", scaleratio=1)
         return fig
 
-    # Fallback
     return go.Figure()
+
+
+# =========================================
+# NUEVO: UNIFILAR P2P POR COLOR DE FIBRA
+# =========================================
+def create_unifilar_p2p() -> go.Figure:
+    """
+    Unifilar simple:
+    - Rectángulo del TR01-SW00-DC-8P (puertos ópticos)
+    - Tres fibras hacia TR01-SW01/02/03 con código de color estándar
+    """
+    fig = go.Figure()
+
+    # Rectángulo del Sw 8P
+    fig.update_layout(
+        shapes=[
+            dict(
+                type="rect",
+                x0=0.05, y0=0.35,
+                x1=0.30, y1=0.75,
+                line=dict(color="orange", width=2),
+                fillcolor="rgba(255,165,0,0.08)",
+            )
+        ]
+    )
+
+    # Texto sobre el rectángulo
+    fig.add_trace(go.Scatter(
+        x=[0.175],
+        y=[0.77],
+        mode="text",
+        text=["TR01-SW00-DC-8P"],
+        textposition="top center",
+        showlegend=False
+    ))
+
+    # 3 puertos ópticos de salida
+    port_ys = [0.70, 0.55, 0.40]
+    sw_names = ["TR01-SW01-ND01", "TR01-SW02-ND02", "TR01-SW03-ND03"]
+
+    for idx, (port_y, (fib_id, fib_name, fib_color), sw_name) in enumerate(
+        zip(port_ys, FIBER_STANDARD_COLORS, sw_names)
+    ):
+        # Puerto dentro del switch (pequeño círculo)
+        fig.add_trace(go.Scatter(
+            x=[0.295],
+            y=[port_y],
+            mode="markers",
+            marker=dict(size=9, symbol="circle", color=fib_color),
+            showlegend=False
+        ))
+
+        # Línea de fibra hacia el switch de campo
+        end_x = 0.85
+        end_y = 0.75 - idx * 0.25
+
+        fig.add_trace(go.Scatter(
+            x=[0.30, end_x],
+            y=[port_y, end_y],
+            mode="lines",
+            line=dict(width=3, color=fib_color),
+            name=f"{fib_id} ({fib_name}) → {sw_name}",
+        ))
+
+        # Rectángulo del switch de campo
+        fig.add_shape(
+            type="rect",
+            x0=end_x - 0.08,
+            y0=end_y - 0.05,
+            x1=end_x + 0.08,
+            y1=end_y + 0.05,
+            line=dict(color="green", width=2),
+            fillcolor="rgba(0,255,0,0.10)",
+        )
+
+        # Texto del switch de campo
+        fig.add_trace(go.Scatter(
+            x=[end_x],
+            y=[end_y],
+            mode="text",
+            text=[sw_name],
+            textposition="middle center",
+            showlegend=False
+        ))
+
+    fig.update_layout(
+        title="Unifilar P2P — Asignación de fibras por troncal (código de colores)",
+        xaxis=dict(visible=False, range=[0, 1]),
+        yaxis=dict(visible=False, range=[0, 1]),
+        margin=dict(l=20, r=20, t=80, b=20),
+        plot_bgcolor="white",
+        height=380,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.05,
+            xanchor="center",
+            x=0.5,
+        )
+    )
+    fig.update_yaxes(scaleanchor="x", scaleratio=1)
+    return fig
 
 
 # =========================================
 # MAPA EJEMPLO REAL — MENDOZA (P2P, OSMnx + Folium)
 # =========================================
 def build_mendoza_p2p_map_osmnx(random_key: int = 0):
-    """
-    Mapa de ejemplo en la ciudad de Mendoza (P2P) usando:
-    - OSMnx para obtener la red vial real y calcular rutas por las calles.
-    - Folium + CartoDB Dark Matter como fondo (calles sobre fondo oscuro).
-    - Switches de campo ubicados a mitad de cuadra (posiciones aleatorias alrededor del centro).
-    - 2 cámaras por cada switch de campo, en las esquinas de la cuadra (UTP).
-    Devuelve:
-      - mapa Folium
-      - lista con info de distancias de cada troncal FO Sw8P → SwCampo
-    """
-
     rng = np.random.default_rng(random_key)
 
-    # Centro aproximado de Mendoza
     center_lat = -32.8895
     center_lon = -68.8458
 
-    # Grafo de calles en un radio de ~2 km (solo para ruteo)
     G = ox.graph_from_point(
         (center_lat, center_lon),
         dist=2000,
         network_type="drive"
     )
-
-    # Copia para ir "gastando" edges y lograr caminos distintos
     G_work = G.copy()
 
-    # Mapa base: fondo negro con calles claras (simple)
     m = folium.Map(
         location=[center_lat, center_lon],
         zoom_start=14,
         tiles="CartoDB dark_matter",
     )
 
-    # Nodos lógicos de nuestra red CCTV (lat/lon "referencia")
-    # CORE y SW_CORE fijos cerca del centro
     nodes = [
         {
             "name": "CORE / NVR",
@@ -385,10 +456,8 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
         },
     ]
 
-    # Generamos 3 nodos de campo aleatorios alrededor del centro (dentro de ~500–900 m)
     field_nodes = []
     for i in range(3):
-        # offsets aleatorios en grados (~0.003–0.007 → ~300–800 m aprox.)
         dlat = rng.uniform(-0.006, 0.006)
         dlon = rng.uniform(-0.006, 0.006)
         field_nodes.append({
@@ -398,14 +467,10 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
             "lon": center_lon + dlon,
             "descripcion": f"Switch de campo Nodo 0{i+1} (troncal TR01)",
         })
-
     nodes.extend(field_nodes)
 
     df_nodes = pd.DataFrame(nodes)
 
-    # Coordenadas reales para dibujo:
-    # - mid_lat/mid_lon = posición donde se dibuja el equipo
-    # - corner1/2 = esquinas de la cuadra para las cámaras (solo SW_CAMPO)
     df_nodes["mid_lat"] = df_nodes["lat"]
     df_nodes["mid_lon"] = df_nodes["lon"]
     df_nodes["corner1_lat"] = np.nan
@@ -413,13 +478,11 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
     df_nodes["corner2_lat"] = np.nan
     df_nodes["corner2_lon"] = np.nan
 
-    # Para cada SW_CAMPO: buscar la cuadra (edge) más cercana y colocar el switch a mitad de cuadra
     for idx, row in df_nodes[df_nodes["type"] == "SW_CAMPO"].iterrows():
         u, v, key = ox.distance.nearest_edges(G, X=row["lon"], Y=row["lat"])
         y_u, x_u = G.nodes[u]["y"], G.nodes[u]["x"]
         y_v, x_v = G.nodes[v]["y"], G.nodes[v]["x"]
 
-        # Punto medio de la cuadra
         mid_lat = (y_u + y_v) / 2
         mid_lon = (x_u + x_v) / 2
 
@@ -430,7 +493,6 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
         df_nodes.loc[idx, "corner2_lat"] = y_v
         df_nodes.loc[idx, "corner2_lon"] = x_v
 
-    # Recuadro del DATACENTER (ligeramente más chico)
     dc_delta_lat = 0.0009
     dc_delta_lon = 0.00108
     folium.Rectangle(
@@ -445,7 +507,6 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
         tooltip="DATACENTER (CORE / NVR + TR01-SW00-DC-8P)",
     ).add_to(m)
 
-    # Colores por tipo (brillantes para fondo negro)
     def node_color(t):
         if t == "CORE":
             return "red"
@@ -455,10 +516,6 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
             return "lime"
         return "white"
 
-    # Marcadores:
-    # - CORE: círculo en su lat/lon original (dentro del recuadro)
-    # - SW_CORE: cuadrado en su lat/lon original
-    # - SW_CAMPO: cuadrados verdes a mitad de cuadra (mid_lat/mid_lon)
     for _, row in df_nodes.iterrows():
         if row["type"] == "CORE":
             folium.CircleMarker(
@@ -496,10 +553,8 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
                 tooltip=row["name"],
             ).add_to(m)
 
-    # Lista para guardar distancias de cada troncal
     troncal_info = []
 
-    # Helper para dibujar ruta real por calles con fallback y registrar longitud
     def add_route_by_street(
         map_obj,
         G_work,
@@ -512,11 +567,6 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
         tooltip: str,
         color: str,
     ):
-        """
-        Intenta calcular la ruta más corta en G_work.
-        Si no hay camino, hace fallback a G_full (permitiendo compartir tramos).
-        Dibuja la traza y guarda la distancia total en troncal_info.
-        """
         def _shortest_path(G_used):
             orig_node = ox.distance.nearest_nodes(G_used, X=lon0, Y=lat0)
             dest_node = ox.distance.nearest_nodes(G_used, X=lon1, Y=lat1)
@@ -528,27 +578,22 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
         try:
             route = _shortest_path(G_work)
         except nx.NetworkXNoPath:
-            # Fallback al grafo completo
             try:
                 route = _shortest_path(G_full)
                 use_fallback = True
             except nx.NetworkXNoPath:
-                return  # ni siquiera en el grafo completo hay camino
+                return
 
-        # Calcular longitud total de la ruta en metros
         total_len = 0.0
         for u, v in zip(route, route[1:]):
             data = G_full.get_edge_data(u, v)
             if data is None:
                 data = G_full.get_edge_data(v, u)
             if data:
-                # MultiDiGraph: tomamos el primer edge
                 edge_attr = list(data.values())[0]
                 total_len += edge_attr.get("length", 0.0)
 
         route_coords = [(G_full.nodes[n]["y"], G_full.nodes[n]["x"]) for n in route]
-
-        # Arrancar y terminar en los equipos exactos
         route_coords.insert(0, (lat0, lon0))
         route_coords.append((lat1, lon1))
 
@@ -559,13 +604,11 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
             tooltip=tooltip,
         ).add_to(map_obj)
 
-        # Guardar info de troncal
         troncal_info.append({
             "name": label,
             "distance_m": total_len
         })
 
-        # Si usamos G_work, gastamos edges; si usamos fallback, no tocamos nada
         if not use_fallback:
             for u, v in zip(route, route[1:]):
                 if G_work.has_edge(u, v):
@@ -573,12 +616,10 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
                 if G_work.has_edge(v, u):
                     G_work.remove_edge(v, u)
 
-    # Recuperamos nodos clave
-    core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]      # solo visual
+    core = df_nodes[df_nodes["type"] == "CORE"].iloc[0]
     sw_core = df_nodes[df_nodes["type"] == "SW_CORE"].iloc[0]
     sw_campo = df_nodes[df_nodes["type"] == "SW_CAMPO"]
 
-    # CORE → Sw 8P (intra-edificio, recto y FICOM)
     folium.PolyLine(
         locations=[[core["lat"], core["lon"]], [sw_core["lat"], sw_core["lon"]]],
         color=FICOM_COLOR,
@@ -586,10 +627,8 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
         tooltip="FO CORE / NVR → TR01-SW00-DC-8P",
     ).add_to(m)
 
-    # Colores distintos para cada traza Sw 8P → Sw Campo
-    route_colors = ["#4FB4CA", "#00CC83", "#3260EA"]  # paleta FICOM/derivados
+    route_colors = [c[2] for c in FIBER_STANDARD_COLORS]  # usamos mismos colores del unifilar
 
-    # Sw 8P → cada Sw de campo, siguiendo calles y terminando a mitad de cuadra
     for i, (_, row) in enumerate(sw_campo.iterrows()):
         color = route_colors[i % len(route_colors)]
         add_route_by_street(
@@ -605,16 +644,12 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
             color=color,
         )
 
-    # -------------------------------
-    # UTP desde cada Sw Campo a las dos esquinas de la cuadra (2 cámaras)
-    # -------------------------------
     for _, row in sw_campo.iterrows():
         mid_lat = row["mid_lat"]
         mid_lon = row["mid_lon"]
         c1_lat, c1_lon = row["corner1_lat"], row["corner1_lon"]
         c2_lat, c2_lon = row["corner2_lat"], row["corner2_lon"]
 
-        # Cable UTP punteado (mucho más fino que la fibra) hacia esquina 1
         folium.PolyLine(
             locations=[[mid_lat, mid_lon], [c1_lat, c1_lon]],
             color="white",
@@ -623,7 +658,6 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
             tooltip=f"UTP desde {row['name']} a Cámara 1 (≤ 100 m aprox.)",
         ).add_to(m)
 
-        # Cámara 1 como triángulo en esquina 1
         RegularPolygonMarker(
             location=[c1_lat, c1_lon],
             number_of_sides=3,
@@ -636,7 +670,6 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
             tooltip=f"Cámara IP 1 asociada a {row['name']}",
         ).add_to(m)
 
-        # Cable UTP punteado hacia esquina 2
         folium.PolyLine(
             locations=[[mid_lat, mid_lon], [c2_lat, c2_lon]],
             color="white",
@@ -645,7 +678,6 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
             tooltip=f"UTP desde {row['name']} a Cámara 2 (≤ 100 m aprox.)",
         ).add_to(m)
 
-        # Cámara 2 como triángulo en esquina 2
         RegularPolygonMarker(
             location=[c2_lat, c2_lon],
             number_of_sides=3,
@@ -658,9 +690,7 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
             tooltip=f"Cámara IP 2 asociada a {row['name']}",
         ).add_to(m)
 
-    # ------------------------------------
-    # LEYENDA SUPERIOR DERECHA (REFERENCIAS + DISTANCIAS)
-    # ------------------------------------
+    # LEYENDA SUPERIOR DERECHA
     legend_html = f"""
     <div style="
         position: fixed;
@@ -672,7 +702,7 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
         border-radius: 8px;
         color: #ffffff;
         font-size: 11px;
-        max-width: 230px;
+        max-width: 260px;
     ">
       <div style="font-weight: bold; margin-bottom: 4px;">Referencias</div>
       <div style="margin-bottom: 4px;">
@@ -689,7 +719,19 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
       </div>
       <div style="margin-bottom: 4px;">
         <span style="display:inline-block;width:22px;border-bottom:3px solid {FICOM_COLOR};margin-right:4px;"></span>
-        Fibra óptica TR01
+        FO CORE → Sw 8P
+      </div>
+      <div style="margin-bottom: 4px;">
+        <span style="display:inline-block;width:22px;border-bottom:3px solid {route_colors[0]};margin-right:4px;"></span>
+        FO Fibra 1 (Azul) → Sw campo
+      </div>
+      <div style="margin-bottom: 4px;">
+        <span style="display:inline-block;width:22px;border-bottom:3px solid {route_colors[1]};margin-right:4px;"></span>
+        FO Fibra 2 (Naranja) → Sw campo
+      </div>
+      <div style="margin-bottom: 4px;">
+        <span style="display:inline-block;width:22px;border-bottom:3px solid {route_colors[2]};margin-right:4px;"></span>
+        FO Fibra 3 (Verde) → Sw campo
       </div>
       <div style="margin-bottom: 4px;">
         <span style="
@@ -737,69 +779,76 @@ with tab_p2p:
 
     col1, col2 = st.columns([2, 1], gap="large")
 
+    # --------- Columna izquierda: esquema + unifilar en recuadro ----------
     with col1:
-        st.markdown("### Esquema lógico P2P (con switches de campo)")
-        st.info(
-            "CORE / NVR → TR01-SW00-DC-8P → Fibra a switches de campo "
-            "(TR01-SW01-ND01 / ND02 / ND03) con 1 entrada óptica y varias salidas eléctricas → Cámaras por UTP."
-        )
-        st.markdown("**Flujo básico:**")
-        st.markdown("- El CORE concentra el grabador / NVR y routing principal.")
-        st.markdown("- `TR01-SW00-DC-8P` distribuye la troncal óptica de la troncal TR01.")
-        st.markdown("- Cada puerto óptico alimenta un **switch de campo** (TR01-SW01-ND01 / SW02-ND02 / SW03-ND03).")
-        st.markdown("- Desde cada switch de campo salen **2 o más cámaras** por UTP (últimos 100 m).")
+        with st.container(border=True):
+            st.markdown("### Esquema lógico P2P (con switches de campo)")
+            st.info(
+                "CORE / NVR → TR01-SW00-DC-8P → Fibra a switches de campo "
+                "(TR01-SW01-ND01 / ND02 / ND03) con 1 entrada óptica y varias salidas eléctricas → Cámaras por UTP."
+            )
+            st.markdown("**Flujo básico:**")
+            st.markdown("- El CORE concentra el grabador / NVR y routing principal.")
+            st.markdown("- `TR01-SW00-DC-8P` distribuye la troncal óptica de la troncal TR01.")
+            st.markdown("- Cada puerto óptico alimenta un **switch de campo** (TR01-SW01-ND01 / SW02-ND02 / SW03-ND03).")
+            st.markdown("- Desde cada switch de campo salen **2 o más cámaras** por UTP (últimos 100 m).")
 
-        fig_p2p = create_topology_diagram("p2p")
-        st.plotly_chart(fig_p2p, use_container_width=True)
+            fig_p2p = create_topology_diagram("p2p")
+            st.plotly_chart(fig_p2p, use_container_width=True)
 
+            st.markdown("### Unifilar de fibra por switch (código de colores estándar)")
+            fig_uni = create_unifilar_p2p()
+            st.plotly_chart(fig_uni, use_container_width=True)
+
+    # --------- Columna derecha: indicadores + ventajas en recuadro ----------
     with col2:
-        st.markdown("### Indicadores P2P (ejemplo)")
-        st.metric("Total de cámaras (ejemplo)", 12)
-        st.metric("Puertos ópticos en CORE (Sw 8P)", 8)
-        st.metric("Switches de campo (TR01-SW01/02/03)", 3)
+        with st.container(border=True):
+            st.markdown("### Indicadores P2P (ejemplo)")
+            st.metric("Total de cámaras (ejemplo)", 12)
+            st.metric("Puertos ópticos en CORE (Sw 8P)", 8)
+            st.metric("Switches de campo (TR01-SW01/02/03)", 3)
 
-        st.markdown("#### Ventajas / Desventajas")
-        st.success("✔ Arquitectura intuitiva (CORE → Sw troncal → Sw de campo).")
-        st.success("✔ Permite agrupar varias cámaras por cada punto de FO (Sw campo).")
-        st.warning("✖ Sigue consumiendo varios puertos ópticos en el Sw troncal.")
-        st.warning("✖ Si falla un switch de campo, caen todas las cámaras de ese punto.")
+            st.markdown("#### Ventajas / Desventajas")
+            st.success("✔ Arquitectura intuitiva (CORE → Sw troncal → Sw de campo).")
+            st.success("✔ Permite agrupar varias cámaras por cada punto de FO (Sw campo).")
+            st.warning("✖ Sigue consumiendo varios puertos ópticos en el Sw troncal.")
+            st.warning("✖ Si falla un switch de campo, caen todas las cámaras de ese punto.")
 
     st.markdown("---")
 
-    st.markdown("## Ejemplo real — Ciudad de Mendoza (P2P sobre mapa)")
+    # --------- Recuadro para el mapa + botón + distancias ----------
+    with st.container(border=True):
+        st.markdown("## Ejemplo real — Ciudad de Mendoza (P2P sobre mapa)")
 
-    st.markdown("""
+        st.markdown("""
 En este ejemplo se ubican los elementos sobre una troncal lógica **TR01**.
 Podés **regenerar aleatoriamente** la ubicación de los nodos de campo (TR01-SW0x-ND0x)
 para discutir distintas variantes de diseño.
 """)
 
-    # ---- Estado para randomizar nodos de campo ----
-    if "p2p_rand_key" not in st.session_state:
-        st.session_state["p2p_rand_key"] = 0
+        if "p2p_rand_key" not in st.session_state:
+            st.session_state["p2p_rand_key"] = 0
 
-    cols_btn = st.columns([1, 3])
-    with cols_btn[0]:
-        if st.button("🔁 Regenerar nodos de campo"):
-            st.session_state["p2p_rand_key"] += 1
+        cols_btn = st.columns([1, 3])
+        with cols_btn[0]:
+            if st.button("🔁 Regenerar nodos de campo"):
+                st.session_state["p2p_rand_key"] += 1
 
-    # Construimos mapa y distancias con la "seed" actual
-    m, troncal_info = build_mendoza_p2p_map_osmnx(
-        random_key=st.session_state["p2p_rand_key"]
-    )
-    components.html(m._repr_html_(), height=500)
+        m, troncal_info = build_mendoza_p2p_map_osmnx(
+            random_key=st.session_state["p2p_rand_key"]
+        )
+        components.html(m._repr_html_(), height=500)
 
-    # Además dejamos un resumen textual opcional debajo
-    st.markdown("### Distancia de cada troncal FO (TR01-SW00-DC-8P → Sw Campo)")
-    if troncal_info:
-        for info in troncal_info:
-            dist_m = info["distance_m"]
-            dist_km = dist_m / 1000.0
-            st.markdown(
-                f"- **{info['name']}**: {dist_m:,.0f} m (≈ {dist_km:.2f} km)",
-            )
-    else:
-        st.caption("No se pudieron calcular las distancias de las troncales en este ejemplo.")
+        st.markdown("### Distancia de cada troncal FO (TR01-SW00-DC-8P → Sw Campo)")
+        if troncal_info:
+            for info in troncal_info:
+                dist_m = info["distance_m"]
+                dist_km = dist_m / 1000.0
+                st.markdown(
+                    f"- **{info['name']}**: {dist_m:,.0f} m (≈ {dist_km:.2f} km)",
+                )
+        else:
+            st.caption("No se pudieron calcular las distancias de las troncales en este ejemplo.")
 
 # =========================================================
 # TAB 2 — ANILLO
@@ -810,30 +859,32 @@ with tab_ring:
     col1, col2 = st.columns([2, 1], gap="large")
 
     with col1:
-        st.markdown("### Esquema lógico en Anillo")
-        st.info(
-            "Diagrama con **switches interconectados en anillo**, "
-            "desde los cuales salen derivaciones hacia las cámaras."
-        )
-        st.markdown("**Idea visual:**")
-        st.markdown("- Anillo de switches interconectados (fibra en color FICOM).")
-        st.markdown("- Derivaciones hacia cámaras en cada nodo (UTP).")
-        st.markdown("- Soporta redundancia por camino alternativo ante cortes.")
+        with st.container(border=True):
+            st.markdown("### Esquema lógico en Anillo")
+            st.info(
+                "Diagrama con **switches interconectados en anillo**, "
+                "desde los cuales salen derivaciones hacia las cámaras."
+            )
+            st.markdown("**Idea visual:**")
+            st.markdown("- Anillo de switches interconectados (fibra en color FICOM).")
+            st.markdown("- Derivaciones hacia cámaras en cada nodo (UTP).")
+            st.markdown("- Soporta redundancia por camino alternativo ante cortes.")
 
-        fig_ring = create_topology_diagram("ring")
-        st.plotly_chart(fig_ring, use_container_width=True)
+            fig_ring = create_topology_diagram("ring")
+            st.plotly_chart(fig_ring, use_container_width=True)
 
     with col2:
-        st.markdown("### Indicadores Anillo (ejemplo)")
-        st.metric("Total de cámaras", 32)
-        st.metric("Fibra total estimada (m)", 3100)
-        st.metric("N° de switches en anillo", 6)
+        with st.container(border=True):
+            st.markdown("### Indicadores Anillo (ejemplo)")
+            st.metric("Total de cámaras", 32)
+            st.metric("Fibra total estimada (m)", 3100)
+            st.metric("N° de switches en anillo", 6)
 
-        st.markdown("#### Ventajas / Desventajas")
-        st.success("✔ Mejor redundancia ante cortes de fibra.")
-        st.success("✔ Buen equilibrio entre cantidad de fibra y cobertura.")
-        st.warning("✖ Mayor complejidad de diseño y configuración.")
-        st.warning("✖ Requiere protocolos de anillo (STP/RSTP, ERPS, etc.).")
+            st.markdown("#### Ventajas / Desventajas")
+            st.success("✔ Mejor redundancia ante cortes de fibra.")
+            st.success("✔ Buen equilibrio entre cantidad de fibra y cobertura.")
+            st.warning("✖ Mayor complejidad de diseño y configuración.")
+            st.warning("✖ Requiere protocolos de anillo (STP/RSTP, ERPS, etc.).")
 
 # =========================================================
 # TAB 3 — FTTN (conceptual)
@@ -844,25 +895,27 @@ with tab_fttn:
     col1, col2 = st.columns([2, 1], gap="large")
 
     with col1:
-        st.markdown("### Esquema lógico FTTN")
-        st.info(
-            "Fibra hasta un **Nodo FTTN** (FOSC + divisor + ONU / switch), "
-            "y desde allí distribución hacia varios puntos con UTP o FO secundaria."
-        )
-        st.markdown("**Flujo básico:**")
-        st.markdown("- CORE / NVR en un punto central (datacenter).")
-        st.markdown("- Fibra troncal hasta nodos FTTN estratégicos.")
-        st.markdown("- En cada nodo: elementos de acceso (ONU / switch).")
-        st.markdown("- Desde el nodo, cámaras cercanas por UTP o FO corta.")
+        with st.container(border=True):
+            st.markdown("### Esquema lógico FTTN")
+            st.info(
+                "Fibra hasta un **Nodo FTTN** (FOSC + divisor + ONU / switch), "
+                "y desde allí distribución hacia varios puntos con UTP o FO secundaria."
+            )
+            st.markdown("**Flujo básico:**")
+            st.markdown("- CORE / NVR en un punto central (datacenter).")
+            st.markdown("- Fibra troncal hasta nodos FTTN estratégicos.")
+            st.markdown("- En cada nodo: elementos de acceso (ONU / switch).")
+            st.markdown("- Desde el nodo, cámaras cercanas por UTP o FO corta.")
 
-        fig_fttn = create_topology_diagram("fttn")
-        st.plotly_chart(fig_fttn, use_container_width=True)
+            fig_fttn = create_topology_diagram("fttn")
+            st.plotly_chart(fig_fttn, use_container_width=True)
 
     with col2:
-        st.markdown("### Comentarios FTTN (ejemplo)")
-        st.metric("Nodos FTTN", 3)
-        st.metric("Cámaras promedio por nodo", 6)
-        st.metric("Cobertura típica desde nodo", "200–400 m")
+        with st.container(border=True):
+            st.markdown("### Comentarios FTTN (ejemplo)")
+            st.metric("Nodos FTTN", 3)
+            st.metric("Cámaras promedio por nodo", 6)
+            st.metric("Cobertura típica desde nodo", "200–400 m")
 
 # =========================================================
 # TAB 4 — COMPARATIVO GLOBAL
