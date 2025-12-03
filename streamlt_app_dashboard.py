@@ -1,6 +1,6 @@
 import streamlit as st
+import pandas as np
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 import folium
 import streamlit.components.v1 as components
@@ -20,7 +20,7 @@ st.set_page_config(
 
 st.title("DASHBOARD DISEÑO CCTV")
 st.warning(
-    "VERSIÓN 6 — Topologías + Unifilar colores FO + Mapa real + Leyenda",
+    "VERSIÓN 7 — Racks + Unifilar detallado + Colores FO + Mapa real",
     icon="⚙️"
 )
 st.caption("Visualización didáctica de topologías: Punto a Punto, Anillo y FTTN")
@@ -43,11 +43,9 @@ FIBER_STANDARD_COLORS = [
     ("Fibra 1", "Azul",   "#0000FF"),
     ("Fibra 2", "Naranja", "#FF7F00"),
     ("Fibra 3", "Verde",   "#008000"),
-    # Si luego sumás más troncales podés seguir:
-    # ("Fibra 4", "Marrón", "#A52A2A"),
-    # ("Fibra 5", "Pizarra", "#708090"),
-    # ...
 ]
+
+PATCHCORD_COLOR = "#FFD700"  # amarillo patchcord
 
 
 # =========================================
@@ -316,102 +314,263 @@ def create_topology_diagram(topology: str) -> go.Figure:
 
 
 # =========================================
-# NUEVO: UNIFILAR P2P POR COLOR DE FIBRA
+# NUEVO UNIFILAR DETALLADO — 3 RACKS
 # =========================================
-def create_unifilar_p2p() -> go.Figure:
-    """
-    Unifilar simple:
-    - Rectángulo del TR01-SW00-DC-8P (puertos ópticos)
-    - Tres fibras hacia TR01-SW01/02/03 con código de color estándar
-    """
+def create_unifilar_racks() -> go.Figure:
     fig = go.Figure()
 
-    # Rectángulo del Sw 8P
-    fig.update_layout(
-        shapes=[
-            dict(
-                type="rect",
-                x0=0.05, y0=0.35,
-                x1=0.30, y1=0.75,
-                line=dict(color="orange", width=2),
-                fillcolor="rgba(255,165,0,0.08)",
-            )
-        ]
+    # ------------------ RACKS ------------------
+    # Rack 1: Troncal
+    fig.add_shape(
+        type="rect",
+        x0=0.02, y0=0.05,
+        x1=0.30, y1=0.95,
+        line=dict(color="gray", width=2),
+    )
+    # Rack 2: Interconexión
+    fig.add_shape(
+        type="rect",
+        x0=0.36, y0=0.05,
+        x1=0.64, y1=0.95,
+        line=dict(color="gray", width=2),
+    )
+    # Rack 3: Core / NVR
+    fig.add_shape(
+        type="rect",
+        x0=0.70, y0=0.05,
+        x1=0.98, y1=0.95,
+        line=dict(color="gray", width=2),
     )
 
-    # Texto sobre el rectángulo
+    # Títulos de los racks
     fig.add_trace(go.Scatter(
-        x=[0.175],
-        y=[0.77],
+        x=[0.16], y=[0.97],
         mode="text",
-        text=["TR01-SW00-DC-8P"],
+        text=["RACK TRONCAL"],
+        textposition="top center",
+        showlegend=False
+    ))
+    fig.add_trace(go.Scatter(
+        x=[0.50], y=[0.97],
+        mode="text",
+        text=["RACK DE INTERCONEXIÓN"],
+        textposition="top center",
+        showlegend=False
+    ))
+    fig.add_trace(go.Scatter(
+        x=[0.84], y=[0.97],
+        mode="text",
+        text=["RACK CORE / NVR"],
         textposition="top center",
         showlegend=False
     ))
 
-    # 3 puertos ópticos de salida
-    port_ys = [0.70, 0.55, 0.40]
-    sw_names = ["TR01-SW01-ND01", "TR01-SW02-ND02", "TR01-SW03-ND03"]
+    # ------------------ RACK 1: 3 ODF TRONCALES ------------------
+    troncal_y_ranges = [
+        (0.72, 0.82),  # TRONCAL 1
+        (0.52, 0.62),  # TRONCAL 2
+        (0.32, 0.42),  # TRONCAL 3
+    ]
+    troncal_port1_coords = []  # para unir con rack de interconexión
 
-    for idx, (port_y, (fib_id, fib_name, fib_color), sw_name) in enumerate(
-        zip(port_ys, FIBER_STANDARD_COLORS, sw_names)
-    ):
-        # Puerto dentro del switch (pequeño círculo)
-        fig.add_trace(go.Scatter(
-            x=[0.295],
-            y=[port_y],
-            mode="markers",
-            marker=dict(size=9, symbol="circle", color=fib_color),
-            showlegend=False
-        ))
+    for idx, (yr0, yr1) in enumerate(troncal_y_ranges):
+        troncal_name = f"ODF TRONCAL {idx+1} (12P)"
+        color_id = FIBER_STANDARD_COLORS[idx][2]  # color de fibra para P1
 
-        # Línea de fibra hacia el switch de campo
-        end_x = 0.85
-        end_y = 0.75 - idx * 0.25
-
-        fig.add_trace(go.Scatter(
-            x=[0.30, end_x],
-            y=[port_y, end_y],
-            mode="lines",
-            line=dict(width=3, color=fib_color),
-            name=f"{fib_id} ({fib_name}) → {sw_name}",
-        ))
-
-        # Rectángulo del switch de campo
+        # rectángulo del ODF
         fig.add_shape(
             type="rect",
-            x0=end_x - 0.08,
-            y0=end_y - 0.05,
-            x1=end_x + 0.08,
-            y1=end_y + 0.05,
-            line=dict(color="green", width=2),
-            fillcolor="rgba(0,255,0,0.10)",
+            x0=0.05, y0=yr0,
+            x1=0.27, y1=yr1,
+            line=dict(color="black", width=1.5),
+            fillcolor="rgba(240,240,240,0.8)",
         )
 
-        # Texto del switch de campo
+        # texto del ODF
         fig.add_trace(go.Scatter(
-            x=[end_x],
-            y=[end_y],
+            x=[0.16], y=[(yr0+yr1)/2],
             mode="text",
-            text=[sw_name],
+            text=[troncal_name],
             textposition="middle center",
+            showlegend=False,
+        ))
+
+        # puertos (12) en la parte superior del ODF
+        port_y = yr1
+        port_xs = np.linspace(0.06, 0.26, 12)
+
+        for i, px in enumerate(port_xs):
+            if i == 0:  # puerto 1 destacado por color de fibra
+                c = color_id
+            else:
+                c = "lightgray"
+            fig.add_trace(go.Scatter(
+                x=[px], y=[port_y + 0.01],
+                mode="markers+text",
+                marker=dict(size=7, symbol="square", color=c),
+                text=["P1"] if i == 0 else [""],
+                textposition="top center",
+                showlegend=False
+            ))
+        # guardamos coordenadas de P1 (primer puerto)
+        troncal_port1_coords.append((port_xs[0], port_y + 0.01))
+
+    # ------------------ RACK 2: ODF SW8P-CORE-NVR ------------------
+    # ODF de 12 puertos
+    odf_sw_y0, odf_sw_y1 = 0.40, 0.60
+    fig.add_shape(
+        type="rect",
+        x0=0.38, y0=odf_sw_y0,
+        x1=0.62, y1=odf_sw_y1,
+        line=dict(color="black", width=1.5),
+        fillcolor="rgba(240,240,240,0.8)",
+    )
+    fig.add_trace(go.Scatter(
+        x=[0.50], y=[(odf_sw_y0+odf_sw_y1)/2],
+        mode="text",
+        text=["ODF SW8P-CORE-NVR (12P)"],
+        textposition="middle center",
+        showlegend=False
+    ))
+
+    sw_port_y = odf_sw_y1
+    sw_port_xs = np.linspace(0.40, 0.60, 12)
+    sw_port1_3_coords = []
+
+    for i, px in enumerate(sw_port_xs):
+        if i < 3:
+            c = FIBER_STANDARD_COLORS[i][2]  # mismo código de color de fibra
+            label = f"P{i+1}"
+        else:
+            c = "lightgray"
+            label = ""
+        fig.add_trace(go.Scatter(
+            x=[px], y=[sw_port_y + 0.01],
+            mode="markers+text",
+            marker=dict(size=7, symbol="square", color=c),
+            text=[label],
+            textposition="top center",
+            showlegend=False
+        ))
+        if i < 3:
+            sw_port1_3_coords.append((px, sw_port_y + 0.01))
+
+    # PATCHCORDS amarillos entre ODF SW8P y ODF TRONCALES (P1)
+    for i in range(3):
+        x1, y1 = sw_port1_3_coords[i]
+        x2, y2 = troncal_port1_coords[i]
+        fig.add_trace(go.Scatter(
+            x=[x1, x2],
+            y=[y1, y2],
+            mode="lines",
+            line=dict(width=2, color=PATCHCORD_COLOR),
             showlegend=False
         ))
 
+    # ------------------ RACK 3: ODF CORE-NVR + SW8P ------------------
+    # ODF CORE-NVR 12P
+    core_odf_y0, core_odf_y1 = 0.62, 0.82
+    fig.add_shape(
+        type="rect",
+        x0=0.72, y0=core_odf_y0,
+        x1=0.96, y1=core_odf_y1,
+        line=dict(color="black", width=1.5),
+        fillcolor="rgba(240,240,240,0.8)",
+    )
+    fig.add_trace(go.Scatter(
+        x=[0.84], y=[(core_odf_y0+core_odf_y1)/2],
+        mode="text",
+        text=["ODF CORE-NVR (12P)"],
+        textposition="middle center",
+        showlegend=False
+    ))
+
+    core_port_y = core_odf_y1
+    core_port_xs = np.linspace(0.74, 0.94, 12)
+
+    used_core_ports = []
+    for i, px in enumerate(core_port_xs):
+        if i < 8:
+            c = "royalblue"
+            label = f"P{i+1}"
+            used_core_ports.append((px, core_port_y + 0.01))
+        else:
+            c = "lightgray"
+            label = ""
+        fig.add_trace(go.Scatter(
+            x=[px], y=[core_port_y + 0.01],
+            mode="markers+text",
+            marker=dict(size=7, symbol="square", color=c),
+            text=[label],
+            textposition="top center",
+            showlegend=False
+        ))
+
+    # SW8P-CORE-NVR
+    sw_box_y0, sw_box_y1 = 0.20, 0.40
+    fig.add_shape(
+        type="rect",
+        x0=0.74, y0=sw_box_y0,
+        x1=0.94, y1=sw_box_y1,
+        line=dict(color="black", width=1.5),
+        fillcolor="rgba(220,240,255,0.9)",
+    )
+    fig.add_trace(go.Scatter(
+        x=[0.84], y=[(sw_box_y0+sw_box_y1)/2],
+        mode="text",
+        text=["SW8P-CORE-NVR"],
+        textposition="middle center",
+        showlegend=False
+    ))
+
+    sw_sfp_y = sw_box_y1
+    sw_sfp_xs = np.linspace(0.76, 0.92, 8)
+    sfp_coords = []
+
+    for i, px in enumerate(sw_sfp_xs):
+        fig.add_trace(go.Scatter(
+            x=[px], y=[sw_sfp_y + 0.01],
+            mode="markers+text",
+            marker=dict(size=7, symbol="square", color="black"),
+            text=[f"SFP{i+1}"],
+            textposition="top center",
+            showlegend=False
+        ))
+        sfp_coords.append((px, sw_sfp_y + 0.01))
+
+    # PATCHCORDS amarillos entre ODF CORE-NVR y SW8P (1:1, 8 patch)
+    for i in range(8):
+        x1, y1 = used_core_ports[i]
+        x2, y2 = sfp_coords[i]
+        fig.add_trace(go.Scatter(
+            x=[x1, x2],
+            y=[y1, y2],
+            mode="lines",
+            line=dict(width=2, color=PATCHCORD_COLOR),
+            showlegend=False
+        ))
+
+    # Leyenda pequeña abajo
+    fig.add_annotation(
+        x=0.5, y=0.02,
+        text=(
+            "<b>Código de colores:</b> "
+            "Fibra 1 (Azul), Fibra 2 (Naranja), Fibra 3 (Verde). "
+            "Patchcords de interconexión en <span style='color:#FFD700'>amarillo</span>."
+        ),
+        showarrow=False,
+        font=dict(size=10),
+        xanchor="center",
+        yanchor="bottom"
+    )
+
     fig.update_layout(
-        title="Unifilar P2P — Asignación de fibras por troncal (código de colores)",
+        title="Unifilar detallado — RACK TRONCAL → RACK DE INTERCONEXIÓN → RACK CORE/NVR",
         xaxis=dict(visible=False, range=[0, 1]),
         yaxis=dict(visible=False, range=[0, 1]),
-        margin=dict(l=20, r=20, t=80, b=20),
+        margin=dict(l=20, r=20, t=80, b=40),
         plot_bgcolor="white",
-        height=380,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.05,
-            xanchor="center",
-            x=0.5,
-        )
+        height=520,
     )
     fig.update_yaxes(scaleanchor="x", scaleratio=1)
     return fig
@@ -419,6 +578,7 @@ def create_unifilar_p2p() -> go.Figure:
 
 # =========================================
 # MAPA EJEMPLO REAL — MENDOZA (P2P, OSMnx + Folium)
+# (SIN CAMBIOS respecto a la versión anterior)
 # =========================================
 def build_mendoza_p2p_map_osmnx(random_key: int = 0):
     rng = np.random.default_rng(random_key)
@@ -627,7 +787,7 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
         tooltip="FO CORE / NVR → TR01-SW00-DC-8P",
     ).add_to(m)
 
-    route_colors = [c[2] for c in FIBER_STANDARD_COLORS]  # usamos mismos colores del unifilar
+    route_colors = [c[2] for c in FIBER_STANDARD_COLORS]
 
     for i, (_, row) in enumerate(sw_campo.iterrows()):
         color = route_colors[i % len(route_colors)]
@@ -690,7 +850,6 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
             tooltip=f"Cámara IP 2 asociada a {row['name']}",
         ).add_to(m)
 
-    # LEYENDA SUPERIOR DERECHA
     legend_html = f"""
     <div style="
         position: fixed;
@@ -796,8 +955,8 @@ with tab_p2p:
             fig_p2p = create_topology_diagram("p2p")
             st.plotly_chart(fig_p2p, use_container_width=True)
 
-            st.markdown("### Unifilar de fibra por switch (código de colores estándar)")
-            fig_uni = create_unifilar_p2p()
+            st.markdown("### Unifilar Racks — Troncales, Interconexión y CORE/NVR")
+            fig_uni = create_unifilar_racks()
             st.plotly_chart(fig_uni, use_container_width=True)
 
     # --------- Columna derecha: indicadores + ventajas en recuadro ----------
