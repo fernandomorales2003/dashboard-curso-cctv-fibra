@@ -1079,13 +1079,6 @@ def _add_odf(fig, x0, y0, width=0.18, height=0.06, label="ODF", ports=12):
 
     return ports_xy
 
-# Función principal — la iremos completando
-def create_rack_connection_diagram():
-    fig = go.Figure()
-    _build_all_cables(fig)
-    _build_animation(fig)
-    return fig
-    
 # =========================================
 # TABS PRINCIPALES
 # =========================================
