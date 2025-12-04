@@ -442,8 +442,6 @@ def create_rack_connection_diagram():
     _build_animation(fig)
 
     return fig
-
-    return fig
 # ============================================
 # PARTE 3 — SWITCH SW8P-CORE-NVR + PUERTOS SFP
 # ============================================
