@@ -433,8 +433,33 @@ def create_rack_connection_diagram():
     sw_y = odf_core_y - 0.10  # un poco arriba del ODF CORE
 
     sfp_ports = _add_switch(fig, sw_x, sw_y)
-    fig._sfp_ports = sfp_ports
+    fig._sfp_ports = sfp_ports 
+    -----------------------------------------------------
+    def _add_cable_segments(fig, segments, width=2, color="#E3D873"):
+    """
+    Dibuja segmentos rectos de un cable y devuelve los índices
+    de las trazas agregadas al fig.
+    Cada segmento es un par:  ((x0, y0), (x1, y1))
+    """
+    trace_ids = []
 
+    for (p0, p1) in segments:
+        (x0, y0) = p0
+        (x1, y1) = p1
+
+        fig.add_trace(go.Scatter(
+            x=[x0, x1],
+            y=[y0, y1],
+            mode="lines",
+            line=dict(color=color, width=width),
+            showlegend=False
+        ))
+
+        # index de la última traza agregada
+        trace_ids.append(len(fig.data) - 1)
+
+    return trace_ids
+-----------------------------------------------------------
     # ---------------------------------------------------
     # AHORA SÍ: construir cableado y animación
     # ---------------------------------------------------
