@@ -11,67 +11,6 @@ from folium.features import RegularPolygonMarker
 from branca.element import Element
 
 
-def _add_rectangle(fig, x0, y0, x1, y1, label, color="#FFFFFF", line_color="#000000"):
-    fig.add_shape(
-        type="rect",
-        x0=x0, y0=y0, x1=x1, y1=y1,
-        line=dict(color=line_color, width=1),
-        fillcolor=color
-    )
-    fig.add_annotation(
-        x=(x0 + x1) / 2,
-        y=y1 + 0.01,
-        text=label,
-        showarrow=False,
-        font=dict(size=10)
-    )
-
-# Dibuja un ODF con 12 puertos
-def _add_odf(fig, x0, y0, width=0.18, height=0.06, label="ODF", ports=12):
-    x1 = x0 + width
-    y1 = y0 + height
-
-    fig.add_shape(
-        type="rect",
-        x0=x0, y0=y0,
-        x1=x1, y1=y1,
-        line=dict(color="black"),
-        fillcolor="#E8E8E8"
-    )
-
-    fig.add_annotation(
-        x=(x0 + x1) / 2,
-        y=y1 - 0.01,
-        text=label,
-        showarrow=False,
-        font=dict(size=9)
-    )
-
-    # Dibujar puertos dentro del ODF
-    port_dx = width / ports
-    ports_xy = []
-
-    for i in range(ports):
-        px0 = x0 + i * port_dx
-        px1 = px0 + port_dx * 0.8
-        py0 = y0 + 0.005
-        py1 = py0 + 0.02
-
-        fig.add_shape(
-            type="rect",
-            x0=px0, y0=py0,
-            x1=px1, y1=py1,
-            line=dict(color="black", width=1),
-            fillcolor="#FFFFFF"
-        )
-        ports_xy.append(((px0 + px1) / 2, (py0 + py1) / 2))
-
-    return ports_xy
-
-# Función principal — la iremos completando
-def create_rack_connection_diagram():
-    fig = go.Figure()
-    return fig
 
 # =========================================
 # CONFIGURACIÓN GENERAL DEL DASHBOARD
@@ -1083,7 +1022,70 @@ def build_mendoza_p2p_map_osmnx(random_key: int = 0):
 
     return m, troncal_info
 
+def _add_rectangle(fig, x0, y0, x1, y1, label, color="#FFFFFF", line_color="#000000"):
+    fig.add_shape(
+        type="rect",
+        x0=x0, y0=y0, x1=x1, y1=y1,
+        line=dict(color=line_color, width=1),
+        fillcolor=color
+    )
+    fig.add_annotation(
+        x=(x0 + x1) / 2,
+        y=y1 + 0.01,
+        text=label,
+        showarrow=False,
+        font=dict(size=10)
+    )
 
+# Dibuja un ODF con 12 puertos
+def _add_odf(fig, x0, y0, width=0.18, height=0.06, label="ODF", ports=12):
+    x1 = x0 + width
+    y1 = y0 + height
+
+    fig.add_shape(
+        type="rect",
+        x0=x0, y0=y0,
+        x1=x1, y1=y1,
+        line=dict(color="black"),
+        fillcolor="#E8E8E8"
+    )
+
+    fig.add_annotation(
+        x=(x0 + x1) / 2,
+        y=y1 - 0.01,
+        text=label,
+        showarrow=False,
+        font=dict(size=9)
+    )
+
+    # Dibujar puertos dentro del ODF
+    port_dx = width / ports
+    ports_xy = []
+
+    for i in range(ports):
+        px0 = x0 + i * port_dx
+        px1 = px0 + port_dx * 0.8
+        py0 = y0 + 0.005
+        py1 = py0 + 0.02
+
+        fig.add_shape(
+            type="rect",
+            x0=px0, y0=py0,
+            x1=px1, y1=py1,
+            line=dict(color="black", width=1),
+            fillcolor="#FFFFFF"
+        )
+        ports_xy.append(((px0 + px1) / 2, (py0 + py1) / 2))
+
+    return ports_xy
+
+# Función principal — la iremos completando
+def create_rack_connection_diagram():
+    fig = go.Figure()
+    _build_all_cables(fig)
+    _build_animation(fig)
+    return fig
+    
 # =========================================
 # TABS PRINCIPALES
 # =========================================
