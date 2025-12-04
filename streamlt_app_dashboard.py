@@ -1117,8 +1117,8 @@ with tab_p2p:
             st.plotly_chart(fig_p2p, use_container_width=True)
 
             st.markdown("### Unifilar Racks — Troncales, Interconexión y CORE/NVR")
-            fig_uni = create_unifilar_racks()
-            st.plotly_chart(fig_uni, use_container_width=True)
+            # fig_uni = create_unifilar_racks()
+            # st.plotly_chart(fig_uni, use_container_width=True)
 
     # --------- Columna derecha: indicadores + ventajas en recuadro ----------
     with col2:
