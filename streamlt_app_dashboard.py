@@ -973,8 +973,9 @@ def create_rack_connection_diagram():
     )
 
     return fig
-----------------------------------------------------------
-----------------------------------------------------------
+# =========================================
+# =========================================
+
 st.markdown("### Diagrama físico de Racks con animación — Troncal / Interconexión / CORE")
 fig_racks = create_rack_connection_diagram()
 st.plotly_chart(fig_racks, use_container_width=True)
