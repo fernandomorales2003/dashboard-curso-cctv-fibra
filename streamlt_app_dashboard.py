@@ -426,6 +426,22 @@ def create_rack_connection_diagram():
     fig._odf_troncal      = [odf1_tr, odf2_tr, odf3_tr]
     fig._odf_interconexion = [odf1_int, odf2_int, odf3_int]
     fig._odf_core         = odf_core
+    # ---------------------------------------------------
+    # SWITCH SW8P-CORE-NVR (DEBE ESTAR ANTES DEL RETURN)
+    # ---------------------------------------------------
+    sw_x = rack_core_x0 + 0.02
+    sw_y = odf_core_y - 0.10  # un poco arriba del ODF CORE
+
+    sfp_ports = _add_switch(fig, sw_x, sw_y)
+    fig._sfp_ports = sfp_ports
+
+    # ---------------------------------------------------
+    # AHORA SÍ: construir cableado y animación
+    # ---------------------------------------------------
+    _build_all_cables(fig)
+    _build_animation(fig)
+
+    return fig
 
     return fig
 # ============================================
