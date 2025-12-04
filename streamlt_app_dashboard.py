@@ -740,88 +740,6 @@ para discutir distintas variantes de diseño.
         else:
             st.caption("No se pudieron calcular las distancias en este ejemplo.")
 
-st.markdown("### Diagrama físico de Racks con animación — Troncal / Interconexión / CORE")
-
-fig_racks = create_rack_connection_diagram()
-st.plotly_chart(fig_racks, use_container_width=True)
-
-# =========================================================
-# TAB 2 — ANILLO
-# =========================================================
-with tab_ring:
-    st.subheader("Topología en Anillo")
-
-    col1, col2 = st.columns([2, 1], gap="large")
-
-    with col1:
-        with st.container(border=True):
-            st.markdown("### Esquema lógico en Anillo")
-            st.info(
-                "Diagrama con **switches interconectados en anillo**, "
-                "desde los cuales salen derivaciones hacia las cámaras."
-            )
-
-            fig_ring = create_topology_diagram("ring")
-            st.plotly_chart(fig_ring, use_container_width=True)
-
-    with col2:
-        with st.container(border=True):
-            st.markdown("### Indicadores Anillo (ejemplo)")
-            st.metric("Total de cámaras", 32)
-            st.metric("Fibra total estimada (m)", 3100)
-            st.metric("N° de switches en anillo", 6)
-
-            st.markdown("#### Ventajas / Desventajas")
-            st.success("✔ Mejor redundancia ante cortes de fibra.")
-            st.success("✔ Buen equilibrio entre cantidad de fibra y cobertura.")
-            st.warning("✖ Mayor complejidad de diseño y configuración.")
-            st.warning("✖ Requiere protocolos de anillo (STP/RSTP, ERPS, etc.).")
-
-# =========================================================
-# TAB 3 — FTTN
-# =========================================================
-with tab_fttn:
-    st.subheader("Topología FTTN — Concepto general")
-
-    col1, col2 = st.columns([2, 1], gap="large")
-
-    with col1:
-        with st.container(border=True):
-            st.markdown("### Esquema lógico FTTN")
-            st.info(
-                "Fibra hasta un **Nodo FTTN** (FOSC + divisor + ONU / switch), "
-                "y desde allí distribución hacia varios puntos con UTP o FO secundaria."
-            )
-
-            fig_fttn = create_topology_diagram("fttn")
-            st.plotly_chart(fig_fttn, use_container_width=True)
-
-    with col2:
-        with st.container(border=True):
-            st.markdown("### Comentarios FTTN (ejemplo)")
-            st.metric("Nodos FTTN", 3)
-            st.metric("Cámaras promedio por nodo", 6)
-            st.metric("Cobertura típica desde nodo", "200–400 m")
-
-# =========================================================
-# TAB 4 — COMPARATIVO GLOBAL
-# =========================================================
-with tab_comp:
-    st.subheader("Comparativo Global de Topologías")
-
-    data_comp = {
-        "Topología": ["Punto a Punto", "Anillo", "FTTN"],
-        "Cámaras (ej.)": [12, 32, 18],
-        "Fibra total (m, ej.)": [3500, 3100, 2600],
-        "Redundancia": ["Baja/Media", "Alta", "Media"],
-        "Complejidad diseño": ["Baja/Media", "Media/Alta", "Media"],
-        "Costo relativo": ["Medio/Alto", "Medio", "Medio/Bajo"],
-        "Escalabilidad": ["Media", "Media", "Alta"],
-    }
-
-    df_comp = pd.DataFrame(data_comp)
-    st.dataframe(df_comp, use_container_width=True)
-
 # =====================================================================
 # MÓDULO COMPLETO — DIAGRAMA DE RACKS + ANIMACIÓN (VERSIÓN FINAL)
 # =====================================================================
@@ -1055,3 +973,86 @@ def create_rack_connection_diagram():
     )
 
     return fig
+----------------------------------------------------------
+----------------------------------------------------------
+st.markdown("### Diagrama físico de Racks con animación — Troncal / Interconexión / CORE")
+fig_racks = create_rack_connection_diagram()
+st.plotly_chart(fig_racks, use_container_width=True)
+
+# =========================================================
+# TAB 2 — ANILLO
+# =========================================================
+with tab_ring:
+    st.subheader("Topología en Anillo")
+
+    col1, col2 = st.columns([2, 1], gap="large")
+
+    with col1:
+        with st.container(border=True):
+            st.markdown("### Esquema lógico en Anillo")
+            st.info(
+                "Diagrama con **switches interconectados en anillo**, "
+                "desde los cuales salen derivaciones hacia las cámaras."
+            )
+
+            fig_ring = create_topology_diagram("ring")
+            st.plotly_chart(fig_ring, use_container_width=True)
+
+    with col2:
+        with st.container(border=True):
+            st.markdown("### Indicadores Anillo (ejemplo)")
+            st.metric("Total de cámaras", 32)
+            st.metric("Fibra total estimada (m)", 3100)
+            st.metric("N° de switches en anillo", 6)
+
+            st.markdown("#### Ventajas / Desventajas")
+            st.success("✔ Mejor redundancia ante cortes de fibra.")
+            st.success("✔ Buen equilibrio entre cantidad de fibra y cobertura.")
+            st.warning("✖ Mayor complejidad de diseño y configuración.")
+            st.warning("✖ Requiere protocolos de anillo (STP/RSTP, ERPS, etc.).")
+
+# =========================================================
+# TAB 3 — FTTN
+# =========================================================
+with tab_fttn:
+    st.subheader("Topología FTTN — Concepto general")
+
+    col1, col2 = st.columns([2, 1], gap="large")
+
+    with col1:
+        with st.container(border=True):
+            st.markdown("### Esquema lógico FTTN")
+            st.info(
+                "Fibra hasta un **Nodo FTTN** (FOSC + divisor + ONU / switch), "
+                "y desde allí distribución hacia varios puntos con UTP o FO secundaria."
+            )
+
+            fig_fttn = create_topology_diagram("fttn")
+            st.plotly_chart(fig_fttn, use_container_width=True)
+
+    with col2:
+        with st.container(border=True):
+            st.markdown("### Comentarios FTTN (ejemplo)")
+            st.metric("Nodos FTTN", 3)
+            st.metric("Cámaras promedio por nodo", 6)
+            st.metric("Cobertura típica desde nodo", "200–400 m")
+
+# =========================================================
+# TAB 4 — COMPARATIVO GLOBAL
+# =========================================================
+with tab_comp:
+    st.subheader("Comparativo Global de Topologías")
+
+    data_comp = {
+        "Topología": ["Punto a Punto", "Anillo", "FTTN"],
+        "Cámaras (ej.)": [12, 32, 18],
+        "Fibra total (m, ej.)": [3500, 3100, 2600],
+        "Redundancia": ["Baja/Media", "Alta", "Media"],
+        "Complejidad diseño": ["Baja/Media", "Media/Alta", "Media"],
+        "Costo relativo": ["Medio/Alto", "Medio", "Medio/Bajo"],
+        "Escalabilidad": ["Media", "Media", "Alta"],
+    }
+
+    df_comp = pd.DataFrame(data_comp)
+    st.dataframe(df_comp, use_container_width=True)
+
