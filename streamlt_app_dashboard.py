@@ -740,51 +740,166 @@ para discutir distintas variantes de diseño.
         else:
             st.caption("No se pudieron calcular las distancias en este ejemplo.")
 
-# =====================================================================
-# MÓDULO COMPLETO — DIAGRAMA DE RACKS + ANIMACIÓN (VERSIÓN FINAL)
-# =====================================================================
+# =========================================
+# NUEVO DIAGRAMA DE RACKS — TRONCAL / INTERCONEXIÓN / CORE
+# =========================================
 
-def _add_odf_racks(fig, x0, y0, width=0.18, height=0.06, label="ODF", ports=12):
-    x1 = x0 + width
-    y1 = y0 + height
+def create_rack_connection_diagram():
+    fig = go.Figure()
 
-    fig.add_shape(type="rect", x0=x0, y0=y0, x1=x1, y1=y1,
-                  line=dict(color="black"), fillcolor="#E8E8E8")
+    # ----------------------------------------
+    # DIMENSIONES BASE
+    # ----------------------------------------
+    rack_w = 0.22
+    rack_h = 0.62
 
-    fig.add_annotation(x=(x0 + x1)/2, y=y1 - 0.01,
-                       text=label, showarrow=False, font=dict(size=9))
+    rack_troncal_x0 = 0.05
+    rack_int_x0     = 0.38
+    rack_core_x0    = 0.70
 
-    port_dx = width / ports
-    ports_xy = []
+    rack_y0 = 0.15
 
-    for i in range(ports):
-        px0 = x0 + i * port_dx
-        px1 = px0 + port_dx * 0.8
-        py0 = y0 + 0.005
-        py1 = py0 + 0.02
-
-        fig.add_shape(type="rect",
-                      x0=px0, y0=py0, x1=px1, y1=py1,
-                      line=dict(color="black", width=1),
-                      fillcolor="#FFFFFF")
-
-        ports_xy.append(((px0 + px1)/2, (py0 + py1)/2))
-
-    return ports_xy
-
-
-def _add_switch_core(fig, x0, y0, width=0.18, height=0.08, label="SW8P-CORE-NVR"):
-    x1 = x0 + width
-    y1 = y0 + height
-
+    # ========================================
+    # RACK TRONCAL
+    # ========================================
     fig.add_shape(type="rect",
-                  x0=x0, y0=y0, x1=x1, y1=y1,
-                  line=dict(color="black"), fillcolor="black")
+        x0=rack_troncal_x0, y0=rack_y0,
+        x1=rack_troncal_x0 + rack_w,
+        y1=rack_y0 + rack_h,
+        line=dict(color="black", width=2),
+        fillcolor="#F7F7F7"
+    )
+    fig.add_annotation(
+        x=rack_troncal_x0 + rack_w / 2,
+        y=rack_y0 + rack_h + 0.03,
+        text="RACK TRONCAL",
+        showarrow=False,
+        font=dict(size=12)
+    )
 
-    fig.add_annotation(x=(x0+x1)/2, y=y1 - 0.015,
-                       text=f"{label}<br>8 × SFP",
-                       showarrow=False, font=dict(color="white", size=9))
+    # ========================================
+    # RACK INTERCONEXIÓN
+    # ========================================
+    fig.add_shape(type="rect",
+        x0=rack_int_x0, y0=rack_y0,
+        x1=rack_int_x0 + rack_w,
+        y1=rack_y0 + rack_h,
+        line=dict(color="black", width=2),
+        fillcolor="#F7F7F7"
+    )
+    fig.add_annotation(
+        x=rack_int_x0 + rack_w / 2,
+        y=rack_y0 + rack_h + 0.03,
+        text="RACK DE INTERCONEXIÓN",
+        showarrow=False,
+        font=dict(size=12)
+    )
 
+    # ========================================
+    # RACK CORE
+    # ========================================
+    fig.add_shape(type="rect",
+        x0=rack_core_x0, y0=rack_y0,
+        x1=rack_core_x0 + rack_w,
+        y1=rack_y0 + rack_h,
+        line=dict(color="black", width=2),
+        fillcolor="#F7F7F7"
+    )
+    fig.add_annotation(
+        x=rack_core_x0 + rack_w / 2,
+        y=rack_y0 + rack_h + 0.03,
+        text="RACK CORE / NVR",
+        showarrow=False,
+        font=dict(size=12)
+    )
+
+    # ========================================
+    # ODFs del RACK TRONCAL
+    # ========================================
+    odf_gap = 0.09
+    odf_h   = 0.06
+
+    odf1_y = rack_y0 + rack_h - (odf_h + odf_gap) * 1
+    odf2_y = rack_y0 + rack_h - (odf_h + odf_gap) * 2
+    odf3_y = rack_y0 + rack_h - (odf_h + odf_gap) * 3
+
+    odf1_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf1_y, label="ODF TRONCAL 1")
+    odf2_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf2_y, label="ODF TRONCAL 2")
+    odf3_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf3_y, label="ODF TRONCAL 3")
+
+    # ========================================
+    # ODFs del RACK INTERCONEXIÓN
+    # (Copias espejo de los troncales)
+    # ========================================
+    odf1_int = _add_odf(fig, rack_int_x0 + 0.02, odf1_y, label="ODF TRONCAL 1")
+    odf2_int = _add_odf(fig, rack_int_x0 + 0.02, odf2_y, label="ODF TRONCAL 2")
+    odf3_int = _add_odf(fig, rack_int_x0 + 0.02, odf3_y, label="ODF TRONCAL 3")
+
+    # ========================================
+    # NUEVO ODF CORE–NVR EN EL RACK INTERMEDIO
+    # ========================================
+    odf_core_int_y = odf3_y - 0.10
+    odf_core_int = _add_odf(
+        fig,
+        rack_int_x0 + 0.02,
+        odf_core_int_y,
+        label="ODF CORE–NVR (INT)"
+    )
+
+    # ========================================
+    # ODF CORE–NVR DEL RACK CORE
+    # ========================================
+    odf_core_y = odf1_y
+    odf_core = _add_odf(fig, rack_core_x0 + 0.02, odf_core_y, label="ODF CORE – NVR")
+
+    # Guardar para cableado
+    fig._odf_troncal       = [odf1_tr, odf2_tr, odf3_tr]
+    fig._odf_interconexion = [odf1_int, odf2_int, odf3_int]
+    fig._odf_core          = odf_core
+    fig._odf_core_int      = odf_core_int
+
+    # ==================================================
+    # SWITCH SW8P-CORE-NVR (BAJO EL ODF DEL CORE)
+    # ==================================================
+    sw_x = rack_core_x0 + 0.02
+    sw_y = odf_core_y - 0.10
+
+    sfp_ports = _add_switch(fig, sw_x, sw_y)
+    fig._sfp_ports = sfp_ports
+
+    # ==================================================
+    # CABLES + ANIMACIÓN
+    # ==================================================
+    _build_all_cables(fig)
+    _build_animation(fig)
+
+    return fig
+
+
+# =====================================================================
+# PARTE SWITCH
+# =====================================================================
+
+def _add_switch(fig, x0, y0, width=0.18, height=0.08, label="SW8P-CORE-NVR"):
+    x1 = x0 + width
+    y1 = y0 + height
+
+    fig.add_shape(
+        type="rect",
+        x0=x0, y0=y0, x1=x1, y1=y1,
+        line=dict(color="black", width=1),
+        fillcolor="black"
+    )
+
+    fig.add_annotation(
+        x=(x0 + x1) / 2,
+        y=y1 - 0.015,
+        text=f"{label}<br>8 × SFP",
+        font=dict(color="white", size=9),
+        showarrow=False
+    )
+
+    # Puertos SFP
     sfp_positions = []
     port_w = width / 10
     gap = (width - (8 * port_w)) / 9
@@ -793,186 +908,182 @@ def _add_switch_core(fig, x0, y0, width=0.18, height=0.08, label="SW8P-CORE-NVR"
     py0 = y0 + 0.01
     py1 = py0 + 0.02
 
-    for _ in range(8):
-        fig.add_shape(type="rect",
-                      x0=px, y0=py0, x1=px + port_w, y1=py1,
-                      line=dict(color="white", width=1), fillcolor="gray")
-
-        sfp_positions.append((px + port_w/2, (py0 + py1)/2))
+    for i in range(8):
+        fig.add_shape(
+            type="rect",
+            x0=px, y0=py0, x1=px + port_w, y1=py1,
+            line=dict(color="white", width=1),
+            fillcolor="gray"
+        )
+        sfp_positions.append((px + port_w / 2, (py0 + py1) / 2))
         px += port_w + gap
 
     return sfp_positions
 
 
-def _add_cable_segments(fig, segments, width=2, color="#E3D873"):
-    trace_ids = []
+# =====================================================================
+# PARTE CABLEADO (incluye los nuevos TR → CORE INT)
+# =====================================================================
 
-    for (p0, p1) in segments:
-        x0, y0 = p0
-        x1, y1 = p1
-
-        fig.add_trace(go.Scatter(
-            x=[x0, x1],
-            y=[y0, y1],
+def _add_cable_segments(fig, segments, width=2):
+    ids = []
+    for (a, b) in segments:
+        t = fig.add_trace(go.Scatter(
+            x=[a[0], b[0]],
+            y=[a[1], b[1]],
             mode="lines",
-            line=dict(color=color, width=width),
+            line=dict(color="#E3D873", width=width),
             showlegend=False
         ))
-        trace_ids.append(len(fig.data) - 1)
+        ids.append(len(fig.data) - 1)
+    return ids
 
-    return trace_ids
 
-
-def _build_all_cables_racks(fig):
+def _build_all_cables(fig):
     fig._cables = {}
 
     odf_tr = fig._odf_troncal
     odf_int = fig._odf_interconexion
     odf_core = fig._odf_core
+    odf_core_int = fig._odf_core_int
     sfp = fig._sfp_ports
 
-    p_tr1, p_tr2, p_tr3 = odf_tr[0][0], odf_tr[1][0], odf_tr[2][0]
-    p_int1, p_int2, p_int3 = odf_int[0][0], odf_int[1][0], odf_int[2][0]
-    p_core1, p_core2, p_core3 = odf_core[0], odf_core[1], odf_core[2]
-    sfp1, sfp2, sfp3 = sfp[0], sfp[1], sfp[2]
+    # Puerto 1 de cada ODF
+    p_tr1 = odf_tr[0][0]
+    p_tr2 = odf_tr[1][0]
+    p_tr3 = odf_tr[2][0]
 
-    def rect_path(a, b):
-        (x0, y0), (x1, y1) = a, b
-        xm = (x0 + x1) / 2
-        return [
-            ((x0, y0), (xm, y0)),
-            ((xm, y0), (xm, y1)),
-            ((xm, y1), (x1, y1)),
-        ]
+    p_int1 = odf_int[0][0]
+    p_int2 = odf_int[1][0]
+    p_int3 = odf_int[2][0]
 
-    cables = {
-        "troncal_1": rect_path(p_tr1, p_int1),
-        "troncal_2": rect_path(p_tr2, p_int2),
-        "troncal_3": rect_path(p_tr3, p_int3),
-        "patch_tr_1": [(p_int1, sfp1)],
-        "patch_tr_2": [(p_int2, sfp2)],
-        "patch_tr_3": [(p_int3, sfp3)],
-        "core_1": [(p_core1, sfp1)],
-        "core_2": [(p_core2, sfp2)],
-        "core_3": [(p_core3, sfp3)],
+    p_core1 = odf_core[0]
+    p_core2 = odf_core[1]
+    p_core3 = odf_core[2]
+
+    p_core_int_1 = odf_core_int[0]
+    p_core_int_2 = odf_core_int[1]
+    p_core_int_3 = odf_core_int[2]
+
+    sfp1 = sfp[0]
+    sfp2 = sfp[1]
+    sfp3 = sfp[2]
+
+    # -------------------------------
+    # Conexión Troncal → Interconexión
+    # -------------------------------
+
+    def rect(a, b):
+        xm = (a[0] + b[0]) / 2
+        return [ (a, (xm, a[1])), ((xm, a[1]), (xm, b[1])), ((xm, b[1]), b) ]
+
+    fig._cables["troncal_1"] = {
+        "segments": rect(p_tr1, p_int1),
+        "trace_ids": _add_cable_segments(fig, rect(p_tr1, p_int1), width=4)
+    }
+    fig._cables["troncal_2"] = {
+        "segments": rect(p_tr2, p_int2),
+        "trace_ids": _add_cable_segments(fig, rect(p_tr2, p_int2), width=4)
+    }
+    fig._cables["troncal_3"] = {
+        "segments": rect(p_tr3, p_int3),
+        "trace_ids": _add_cable_segments(fig, rect(p_tr3, p_int3), width=4)
     }
 
-    for key, segs in cables.items():
-        fig._cables[key] = {
-            "segments": segs,
-            "trace_ids": _add_cable_segments(
-                fig, segs,
-                width=4 if "troncal" in key else 2
-            )
-        }
+    # -------------------------------
+    # NUEVO: Patchcords TRONCAL → CORE (INT)
+    # -------------------------------
+    fig._cables["patch_tr1_coreint"] = {
+        "segments": [ (p_int1, p_core_int_1) ],
+        "trace_ids": _add_cable_segments(fig, [(p_int1, p_core_int_1)], width=2)
+    }
+    fig._cables["patch_tr2_coreint"] = {
+        "segments": [ (p_int2, p_core_int_2) ],
+        "trace_ids": _add_cable_segments(fig, [(p_int2, p_core_int_2)], width=2)
+    }
+    fig._cables["patch_tr3_coreint"] = {
+        "segments": [ (p_int3, p_core_int_3) ],
+        "trace_ids": _add_cable_segments(fig, [(p_int3, p_core_int_3)], width=2)
+    }
+
+    # -------------------------------
+    # CORE → SWITCH
+    # -------------------------------
+    fig._cables["core_1"] = {
+        "segments": [ (p_core1, sfp1) ],
+        "trace_ids": _add_cable_segments(fig, [(p_core1, sfp1)], width=2)
+    }
+    fig._cables["core_2"] = {
+        "segments": [ (p_core2, sfp2) ],
+        "trace_ids": _add_cable_segments(fig, [(p_core2, sfp2)], width=2)
+    }
+    fig._cables["core_3"] = {
+        "segments": [ (p_core3, sfp3) ],
+        "trace_ids": _add_cable_segments(fig, [(p_core3, sfp3)], width=2)
+    }
 
 
-def _build_animation_racks(fig):
+# =====================================================================
+# ANIMACIÓN (queda igual, pero luego la mejoramos)
+# =====================================================================
+
+def _build_animation(fig):
     frames = []
-    cable_keys = list(fig._cables.keys())
+    cables = fig._cables
+    keys = list(cables.keys())
 
-    H = "#FFD700"
-    N = "#E3D873"
+    highlight = "#FFD700"
+    normal = "#E3D873"
 
-    for key in cable_keys:
+    for step, key in enumerate(keys):
         frame_data = []
-        for k2 in cable_keys:
-            for tid in fig._cables[k2]["trace_ids"]:
+        for k2 in keys:
+            for trace_id in cables[k2]["trace_ids"]:
                 frame_data.append({
                     "line": {
-                        "color": H if k2 == key else N,
+                        "color": highlight if k2 == key else normal,
                         "width": 4 if "troncal" in k2 else 2
                     }
                 })
-
-        frames.append(go.Frame(data=frame_data, name=f"{key}"))
+        frames.append(go.Frame(data=frame_data, name=f"step_{step}"))
 
     fig.frames = frames
 
     fig.update_layout(
         updatemenus=[{
             "type": "buttons",
-            "x": 0.10, "y": -0.12,
+            "x": 0.10,
+            "y": -0.12,
             "showactive": True,
             "buttons": [
-                {"label": "▶ Reproducir", "method": "animate",
-                 "args": [None, {"frame": {"duration": 800, "redraw": True},
-                                 "fromcurrent": True}]},
-                {"label": "⏹ Reset", "method": "animate",
-                 "args": [["troncal_1"], {"frame": {"duration": 0}}]},
+                {
+                    "label": "▶ Reproducir",
+                    "method": "animate",
+                    "args": [None, {"frame": {"duration": 800, "redraw": True}}]
+                },
+                {
+                    "label": "⏹ Reset",
+                    "method": "animate",
+                    "args": [["step_0"], {"frame": {"duration": 0, "redraw": True}}]
+                },
             ],
         }],
         sliders=[{
             "active": 0,
             "steps": [
-                {"label": k, "method": "animate",
-                 "args": [[k], {"frame": {"duration": 0}}]}
-                for k in cable_keys
+                {
+                    "label": f"{i+1}",
+                    "method": "animate",
+                    "args": [[f"step_{i}"], {"frame": {"duration": 0, "redraw": True}}]
+                }
+                for i in range(len(keys))
             ],
-            "x": 0.25, "y": -0.12, "len": 0.60
+            "x": 0.25,
+            "y": -0.12,
+            "len": 0.60
         }]
     )
 
-
-def create_rack_connection_diagram():
-    fig = go.Figure()
-
-    rack_w = 0.22
-    rack_h = 0.62
-    y0 = 0.15
-
-    x_tr = 0.05
-    x_int = 0.38
-    x_core = 0.70
-
-    for x, label in [(x_tr, "RACK TRONCAL"),
-                     (x_int, "RACK INTERCONEXIÓN"),
-                     (x_core, "RACK CORE / NVR")]:
-        fig.add_shape(type="rect",
-                      x0=x, y0=y0, x1=x + rack_w, y1=y0 + rack_h,
-                      line=dict(color="black", width=2),
-                      fillcolor="#F7F7F7")
-        fig.add_annotation(x=x + rack_w/2, y=y0 + rack_h + 0.03,
-                           text=label, showarrow=False, font=dict(size=12))
-
-    gap = 0.09
-    h = 0.06
-
-    odf_y1 = y0 + rack_h - (h + gap)*1
-    odf_y2 = y0 + rack_h - (h + gap)*2
-    odf_y3 = y0 + rack_h - (h + gap)*3
-
-    odf_tr1 = _add_odf_racks(fig, x_tr + 0.02, odf_y1, label="ODF TRONCAL 1")
-    odf_tr2 = _add_odf_racks(fig, x_tr + 0.02, odf_y2, label="ODF TRONCAL 2")
-    odf_tr3 = _add_odf_racks(fig, x_tr + 0.02, odf_y3, label="ODF TRONCAL 3")
-
-    odf_int1 = _add_odf_racks(fig, x_int + 0.02, odf_y1, label="ODF TRONCAL 1")
-    odf_int2 = _add_odf_racks(fig, x_int + 0.02, odf_y2, label="ODF TRONCAL 2")
-    odf_int3 = _add_odf_racks(fig, x_int + 0.02, odf_y3, label="ODF TRONCAL 3")
-
-    odf_core = _add_odf_racks(fig, x_core + 0.02, odf_y1, label="ODF CORE – NVR")
-
-    fig._odf_troncal = [odf_tr1, odf_tr2, odf_tr3]
-    fig._odf_interconexion = [odf_int1, odf_int2, odf_int3]
-    fig._odf_core = odf_core
-
-    sw_x = x_core + 0.02
-    sw_y = odf_y1 - 0.10
-
-    fig._sfp_ports = _add_switch_core(fig, sw_x, sw_y)
-
-    _build_all_cables_racks(fig)
-    _build_animation_racks(fig)
-
-    fig.update_layout(
-        height=600,
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
-        margin=dict(l=10, r=10, t=40, b=80),
-        plot_bgcolor="white"
-    )
-
-    return fig
 # =========================================
 # =========================================
 
