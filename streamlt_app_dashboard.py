@@ -680,33 +680,36 @@ def _add_rectangle(fig, x0, y0, x1, y1, label, color="#FFFFFF", line_color="#000
                   fillcolor=color)
     fig.add_annotation(x=(x0+x1)/2, y=y1+0.01, text=label, showarrow=False, font=dict(size=10))
 
-def _add_odf(fig, x0, y0, width=0.18, height=0.08, label="ODF", ports=12):
+def _add_odf(fig, x0, y0, width=0.18, height=0.10, label="ODF", ports=12):
     x1 = x0 + width
     y1 = y0 + height
 
+    # Caja del ODF
     fig.add_shape(
         type="rect",
         x0=x0, y0=y0, x1=x1, y1=y1,
-        line=dict(color="black"),
+        line=dict(color="black", width=1),
         fillcolor="#E8E8E8"
     )
 
+    # Texto más separado del borde superior
     fig.add_annotation(
         x=(x0 + x1) / 2,
-        y=y1 - 0.015,     # más separación del borde
+        y=y1 - 0.02,
         text=label,
         showarrow=False,
-        font=dict(size=10)
+        font=dict(size=11)
     )
 
+    # Dibujar puertos
     port_dx = width / ports
     ports_xy = []
 
     for i in range(ports):
         px0 = x0 + i * port_dx
         px1 = px0 + port_dx * 0.8
-        py0 = y0 + 0.01
-        py1 = py0 + 0.03     # puertos más altos
+        py0 = y0 + 0.02
+        py1 = py0 + 0.035
 
         fig.add_shape(
             type="rect",
@@ -714,9 +717,21 @@ def _add_odf(fig, x0, y0, width=0.18, height=0.08, label="ODF", ports=12):
             line=dict(color="black", width=1),
             fillcolor="#FFFFFF"
         )
-        ports_xy.append(((px0+px1)/2, (py0+py1)/2))
+        ports_xy.append(((px0 + px1) / 2, (py0 + py1) / 2))
 
     return ports_xy
+    
+def _straight_cable(a, b):
+    """Devuelve 3 segmentos horizontales/verticales, siempre visibles."""
+    x0, y0 = a
+    x1, y1 = b
+    xm = (x0 + x1) / 2
+
+    return [
+        ((x0, y0), (xm, y0)),
+        ((xm, y0), (xm, y1)),
+        ((xm, y1), (x1, y1)),
+    ]
 
 def _add_switch(fig, x0, y0, width=0.18, height=0.08, label="SW8P-CORE-NVR"):
     x1 = x0 + width
@@ -766,84 +781,69 @@ def _add_cable_segments(fig, segments, width=3, color="#E3D873"):
 def _build_all_cables(fig):
     fig._cables = {}
 
-    odf_tr       = fig._odf_troncal
-    odf_int      = fig._odf_interconexion
-    odf_core     = fig._odf_core
-    odf_core_int = fig._odf_core_int
+    odf_tr       = fig._odf_troncal       # TR1 / TR2 / TR3
+    odf_int      = fig._odf_interconexion # INT TR1 / TR2 / TR3
+    odf_core_int = fig._odf_core_int      # CORE-NVR (INT)
+    odf_core     = fig._odf_core          # CORE-NVR (RACK CORE)
     sfp          = fig._sfp_ports
 
-    # ---- Puerto 1 de cada ODF
-    p_tr1 = odf_tr[0][0]
-    p_tr2 = odf_tr[1][0]
-    p_tr3 = odf_tr[2][0]
+    # --- PUERTOS ---
+    p_tr1, p_tr2, p_tr3 = odf_tr[0][0], odf_tr[1][0], odf_tr[2][0]
+    p_int1, p_int2, p_int3 = odf_int[0][0], odf_int[1][0], odf_int[2][0]
 
-    p_int1 = odf_int[0][0]
-    p_int2 = odf_int[1][0]
-    p_int3 = odf_int[2][0]
-
-    # ---- Puertos CORE INT
     p_core_int_1 = odf_core_int[0]
     p_core_int_2 = odf_core_int[1]
     p_core_int_3 = odf_core_int[2]
 
-    # ---- Puertos CORE FINAL
     p_core_1 = odf_core[0]
     p_core_2 = odf_core[1]
     p_core_3 = odf_core[2]
 
     sfp1, sfp2, sfp3 = sfp[0], sfp[1], sfp[2]
 
-    # ---------------------------
-    # 1) Cables TRONCAL → INT (grueso)
-    # ---------------------------
-    def rect(a, b):
-        xm = (a[0] + b[0]) / 2
-        return [
-            (a, (xm, a[1])),
-            ((xm, a[1]), (xm, b[1])),
-            ((xm, b[1]), b)
-        ]
-
+    # ======================================================
+    # 1) TRONCAL → INTERCONEXIÓN (cables gruesos)
+    # ======================================================
     fig._cables["troncal_1"] = {
-        "segments": rect(p_tr1, p_int1),
-        "trace_ids": _add_cable_segments(fig, rect(p_tr1, p_int1), width=5)
+        "segments": _straight_cable(p_tr1, p_int1),
+        "trace_ids": _add_cable_segments(fig, _straight_cable(p_tr1, p_int1), width=5)
     }
     fig._cables["troncal_2"] = {
-        "segments": rect(p_tr2, p_int2),
-        "trace_ids": _add_cable_segments(fig, rect(p_tr2, p_int2), width=5)
+        "segments": _straight_cable(p_tr2, p_int2),
+        "trace_ids": _add_cable_segments(fig, _straight_cable(p_tr2, p_int2), width=5)
     }
     fig._cables["troncal_3"] = {
-        "segments": rect(p_tr3, p_int3),
-        "trace_ids": _add_cable_segments(fig, rect(p_tr3, p_int3), width=5)
+        "segments": _straight_cable(p_tr3, p_int3),
+        "trace_ids": _add_cable_segments(fig, _straight_cable(p_tr3, p_int3), width=5)
     }
 
-    # ---------------------------
-    # 2) Patchcords INT → CORE INT
-    # ---------------------------
-    fig._cables["patch_tr1_coreint"] = {
-        "segments": [(p_int1, p_core_int_1)],
-        "trace_ids": _add_cable_segments(fig, [(p_int1, p_core_int_1)], width=2)
+    # ======================================================
+    # 2) PATCHCORDS TRONCAL → ODF CORE-NVR (INT)
+    # ======================================================
+    fig._cables["patch1_tr_to_coreint"] = {
+        "segments": [(p_tr1, p_core_int_1)],
+        "trace_ids": _add_cable_segments(fig, [(p_tr1, p_core_int_1)], width=2)
     }
-    fig._cables["patch_tr2_coreint"] = {
-        "segments": [(p_int2, p_core_int_2)],
-        "trace_ids": _add_cable_segments(fig, [(p_int2, p_core_int_2)], width=2)
+    fig._cables["patch2_tr_to_coreint"] = {
+        "segments": [(p_tr2, p_core_int_2)],
+        "trace_ids": _add_cable_segments(fig, [(p_tr2, p_core_int_2)], width=2)
     }
-    fig._cables["patch_tr3_coreint"] = {
-        "segments": [(p_int3, p_core_int_3)],
-        "trace_ids": _add_cable_segments(fig, [(p_int3, p_core_int_3)], width=2)
-    }
-
-    # ---------------------------
-    # 3) CABLE GRUESO ODF CORE INT → ODF CORE FINAL
-    # ---------------------------
-    fig._cables["core_to_core"] = {
-        "segments": rect(p_core_int_1, p_core_1),  # unimos puerto 1 a 1
-        "trace_ids": _add_cable_segments(fig, rect(p_core_int_1, p_core_1), width=5)
+    fig._cables["patch3_tr_to_coreint"] = {
+        "segments": [(p_tr3, p_core_int_3)],
+        "trace_ids": _add_cable_segments(fig, [(p_tr3, p_core_int_3)], width=2)
     }
 
-    # ---------------------------
+    # ======================================================
+    # 3) CABLE GRUESO ENTRE ODF CORE INT → ODF CORE FINAL
+    # ======================================================
+    fig._cables["coreint_to_core"] = {
+        "segments": _straight_cable(p_core_int_1, p_core_1),
+        "trace_ids": _add_cable_segments(fig, _straight_cable(p_core_int_1, p_core_1), width=5)
+    }
+
+    # ======================================================
     # 4) CORE FINAL → SWITCH
-    # ---------------------------
+    # ======================================================
     fig._cables["core1_to_sfp1"] = {
         "segments": [(p_core_1, sfp1)],
         "trace_ids": _add_cable_segments(fig, [(p_core_1, sfp1)], width=2)
@@ -856,7 +856,6 @@ def _build_all_cables(fig):
         "segments": [(p_core_3, sfp3)],
         "trace_ids": _add_cable_segments(fig, [(p_core_3, sfp3)], width=2)
     }
-
 
 def _build_animation(fig):
     frames = []
