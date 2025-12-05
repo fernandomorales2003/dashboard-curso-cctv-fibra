@@ -1043,7 +1043,7 @@ def create_rack_connection_diagram():
     # DIMENSIONES BASE
     # ----------------------------------------
     rack_w = 0.22
-    rack_h = 0.62
+    rack_h = 0.90
 
     rack_troncal_x0 = 0.05
     rack_int_x0     = 0.38
