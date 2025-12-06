@@ -1291,6 +1291,35 @@ def _add_cable_segments(fig, segments, width=2):
 
 
 def _build_all_cables(fig):
+        # ==========================================
+    # EXTRAER PUERTOS 1 (POSICIONES XY)
+    # ==========================================
+
+    # Rack TRONCAL
+    p_tr1 = odf_tr[0][0]   # Puerto 1 del ODF TRONCAL 1
+    p_tr2 = odf_tr[1][0]   # Puerto 1 del ODF TRONCAL 2
+    p_tr3 = odf_tr[2][0]   # Puerto 1 del ODF TRONCAL 3
+
+    # Rack INTERCONEXIÓN
+    p_int1 = odf_int[0][0]   # Puerto 1 del ODF TRONCAL 1 (INT)
+    p_int2 = odf_int[1][0]   # Puerto 1 del ODF TRONCAL 2 (INT)
+    p_int3 = odf_int[2][0]   # Puerto 1 del ODF TRONCAL 3 (INT)
+
+    # ODF CORE–NVR (INT)
+    p_core_int_1 = odf_core_int[0]   # Puerto 1
+    p_core_int_2 = odf_core_int[1]   # Puerto 2
+    p_core_int_3 = odf_core_int[2]   # Puerto 3
+
+    # ODF CORE–NVR del rack final
+    p_core1 = odf_core[0]
+    p_core2 = odf_core[1]
+    p_core3 = odf_core[2]
+
+    # SWITCH SFP ports
+    sfp1 = sfp[0]
+    sfp2 = sfp[1]
+    sfp3 = sfp[2]
+
     fig._cables = {}
 
     odf_tr = fig._odf_troncal
