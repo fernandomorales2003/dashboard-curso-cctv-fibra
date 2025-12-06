@@ -1390,6 +1390,7 @@ fig._cables["patch_tr3_to_coreint"] = {
     # 3) Cable GRUESO entre:
     #    ODF CORE–NVR (INT) → ODF CORE–NVR (RACK CORE)
     # ======================================================
+  
     fig._cables["coreint_to_core"] = {
         "segments": rect(p_core_int_1, p_core1),
         "trace_ids": _add_cable_segments(fig, rect(p_core_int_1, p_core1), width=6)
