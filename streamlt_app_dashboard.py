@@ -1100,7 +1100,6 @@ para discutir distintas variantes de diseño.
 # =========================================
 # NUEVO DIAGRAMA DE RACKS — TRONCAL / INTERCONEXIÓN / CORE
 # =========================================
-
 def create_rack_connection_diagram():
     fig = go.Figure()
 
@@ -1116,122 +1115,97 @@ def create_rack_connection_diagram():
 
     rack_y0 = 0.15
 
-    # ========================================
+    odf_gap = 0.09
+    odf_h   = 0.12   # altura aumentada (doble para mejor lectura)
+
+    # ----------------------------------------
     # RACK TRONCAL
-    # ========================================
+    # ----------------------------------------
     fig.add_shape(type="rect",
         x0=rack_troncal_x0, y0=rack_y0,
-        x1=rack_troncal_x0 + rack_w,
-        y1=rack_y0 + rack_h,
-        line=dict(color="black", width=2),
-        fillcolor="#F7F7F7"
+        x1=rack_troncal_x0 + rack_w, y1=rack_y0 + rack_h,
+        line=dict(color="black", width=2), fillcolor="#F7F7F7"
     )
     fig.add_annotation(
-        x=rack_troncal_x0 + rack_w / 2,
-        y=rack_y0 + rack_h + 0.03,
-        text="RACK TRONCAL",
-        showarrow=False,
-        font=dict(size=12)
+        x=rack_troncal_x0 + rack_w/2, y=rack_y0 + rack_h + 0.03,
+        text="RACK TRONCAL", showarrow=False, font=dict(size=12)
     )
 
-    # ========================================
+    # ----------------------------------------
     # RACK INTERCONEXIÓN
-    # ========================================
+    # ----------------------------------------
     fig.add_shape(type="rect",
         x0=rack_int_x0, y0=rack_y0,
-        x1=rack_int_x0 + rack_w,
-        y1=rack_y0 + rack_h,
-        line=dict(color="black", width=2),
-        fillcolor="#F7F7F7"
+        x1=rack_int_x0 + rack_w, y1=rack_y0 + rack_h,
+        line=dict(color="black", width=2), fillcolor="#F7F7F7"
     )
     fig.add_annotation(
-        x=rack_int_x0 + rack_w / 2,
-        y=rack_y0 + rack_h + 0.03,
-        text="RACK DE INTERCONEXIÓN",
-        showarrow=False,
-        font=dict(size=12)
+        x=rack_int_x0 + rack_w/2, y=rack_y0 + rack_h + 0.03,
+        text="RACK DE INTERCONEXIÓN", showarrow=False, font=dict(size=12)
     )
 
-    # ========================================
-    # RACK CORE
-    # ========================================
+    # ----------------------------------------
+    # RACK CORE / NVR
+    # ----------------------------------------
     fig.add_shape(type="rect",
         x0=rack_core_x0, y0=rack_y0,
-        x1=rack_core_x0 + rack_w,
-        y1=rack_y0 + rack_h,
-        line=dict(color="black", width=2),
-        fillcolor="#F7F7F7"
+        x1=rack_core_x0 + rack_w, y1=rack_y0 + rack_h,
+        line=dict(color="black", width=2), fillcolor="#F7F7F7"
     )
     fig.add_annotation(
-        x=rack_core_x0 + rack_w / 2,
-        y=rack_y0 + rack_h + 0.03,
-        text="RACK CORE / NVR",
-        showarrow=False,
-        font=dict(size=12)
+        x=rack_core_x0 + rack_w/2, y=rack_y0 + rack_h + 0.03,
+        text="RACK CORE / NVR", showarrow=False, font=dict(size=12)
     )
 
-    # ========================================
-    # ODFs del RACK TRONCAL
-    # ========================================
-    odf_gap = 0.09
-    odf_h   = 0.06
+    # ----------------------------------------
+    # POSICIONES DE ODF (ALTURA DOBLE)
+    # ----------------------------------------
+    odf1_y = rack_y0 + rack_h - (odf_h + odf_gap)*1
+    odf2_y = rack_y0 + rack_h - (odf_h + odf_gap)*2
+    odf3_y = rack_y0 + rack_h - (odf_h + odf_gap)*3
 
-    odf1_y = rack_y0 + rack_h - (odf_h + odf_gap) * 1
-    odf2_y = rack_y0 + rack_h - (odf_h + odf_gap) * 2
-    odf3_y = rack_y0 + rack_h - (odf_h + odf_gap) * 3
+    # RACK TRONCAL
+    odf1_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf1_y, odf_h, "ODF TRONCAL 1")
+    odf2_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf2_y, odf_h, "ODF TRONCAL 2")
+    odf3_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf3_y, odf_h, "ODF TRONCAL 3")
 
-    odf1_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf1_y, label="ODF TRONCAL 1")
-    odf2_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf2_y, label="ODF TRONCAL 2")
-    odf3_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf3_y, label="ODF TRONCAL 3")
+    # RACK INTERCONEXIÓN
+    odf1_int = _add_odf(fig, rack_int_x0 + 0.02, odf1_y, odf_h, "ODF TRONCAL 1")
+    odf2_int = _add_odf(fig, rack_int_x0 + 0.02, odf2_y, odf_h, "ODF TRONCAL 2")
+    odf3_int = _add_odf(fig, rack_int_x0 + 0.02, odf3_y, odf_h, "ODF TRONCAL 3")
 
-    # ========================================
-    # ODFs del RACK INTERCONEXIÓN
-    # (Copias espejo de los troncales)
-    # ========================================
-    odf1_int = _add_odf(fig, rack_int_x0 + 0.02, odf1_y, label="ODF TRONCAL 1")
-    odf2_int = _add_odf(fig, rack_int_x0 + 0.02, odf2_y, label="ODF TRONCAL 2")
-    odf3_int = _add_odf(fig, rack_int_x0 + 0.02, odf3_y, label="ODF TRONCAL 3")
+    # ODF CORE–NVR EN INTERCONEXIÓN
+    odf_core_int_y = odf3_y - 0.15
+    odf_core_int = _add_odf(fig, rack_int_x0 + 0.02, odf_core_int_y, odf_h, "ODF CORE–NVR (INT)")
 
-    # ========================================
-    # NUEVO ODF CORE–NVR EN EL RACK INTERMEDIO
-    # ========================================
-    odf_core_int_y = odf3_y - 0.10
-    odf_core_int = _add_odf(
-        fig,
-        rack_int_x0 + 0.02,
-        odf_core_int_y,
-        label="ODF CORE–NVR (INT)"
-    )
-
-    # ========================================
-    # ODF CORE–NVR DEL RACK CORE
-    # ========================================
+    # ODF CORE–NVR EN RACK CORE
     odf_core_y = odf1_y
-    odf_core = _add_odf(fig, rack_core_x0 + 0.02, odf_core_y, label="ODF CORE – NVR")
+    odf_core = _add_odf(fig, rack_core_x0 + 0.02, odf_core_y, odf_h, "ODF CORE–NVR")
 
-    # Guardar para cableado
+    # Guardar referencias para cableado
     fig._odf_troncal       = [odf1_tr, odf2_tr, odf3_tr]
     fig._odf_interconexion = [odf1_int, odf2_int, odf3_int]
-    fig._odf_core          = odf_core
     fig._odf_core_int      = odf_core_int
+    fig._odf_core          = odf_core
 
-    # ==================================================
-    # SWITCH SW8P-CORE-NVR (BAJO EL ODF DEL CORE)
-    # ==================================================
+    # ----------------------------------------
+    # SWITCH (más alto para mejor lectura)
+    # ----------------------------------------
     sw_x = rack_core_x0 + 0.02
-    sw_y = odf_core_y - 0.10
+    sw_y = odf_core_y - 0.16
+    fig._sfp_ports = _add_switch(fig, sw_x, sw_y, width=0.18, height=0.12)
 
-    sfp_ports = _add_switch(fig, sw_x, sw_y)
-    fig._sfp_ports = sfp_ports
-
-    # ==================================================
-    # CABLES + ANIMACIÓN
-    # ==================================================
+    # ----------------------------------------
+    # CABLEADO COMPLETO
+    # ----------------------------------------
     _build_all_cables(fig)
     _build_animation(fig)
 
-    return fig
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False)
+    fig.update_layout(height=820, margin=dict(l=20, r=20, t=20, b=20))
 
+    return fig
 
 # =====================================================================
 # PARTE SWITCH
