@@ -1372,6 +1372,25 @@ def _build_all_cables(fig):
         "segments": [ (p_core3, sfp3) ],
         "trace_ids": _add_cable_segments(fig, [(p_core3, sfp3)], width=2)
     }
+# ==========================================
+# NUEVOS PATCHCORDS EN EL RACK DE INTERCONEXIÓN
+# TRONCAL INT → CORE–NVR INT
+# ==========================================
+
+fig._cables["patch_int1_coreint"] = {
+    "segments": [(p_int1, p_core_int_1)],
+    "trace_ids": _add_cable_segments(fig, [(p_int1, p_core_int_1)], width=2)
+}
+
+fig._cables["patch_int2_coreint"] = {
+    "segments": [(p_int2, p_core_int_2)],
+    "trace_ids": _add_cable_segments(fig, [(p_int2, p_core_int_2)], width=2)
+}
+
+fig._cables["patch_int3_coreint"] = {
+    "segments": [(p_int3, p_core_int_3)],
+    "trace_ids": _add_cable_segments(fig, [(p_int3, p_core_int_3)], width=2)
+}
 
 
 # =====================================================================
