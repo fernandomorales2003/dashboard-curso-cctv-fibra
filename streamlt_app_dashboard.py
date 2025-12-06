@@ -1360,21 +1360,31 @@ def _build_all_cables(fig):
     }
 
     # ======================================================
-    # 2) Patchcords NUEVOS:
-    #    INTERCONEXIÓN TRONCAL → ODF CORE–NVR (INT)
+    # 2) Patchcords INTERCONEXIÓN TRONCAL → ODF CORE–NVR (INT)
+    #    (Siempre visibles usando cable CURVO)
     # ======================================================
-    fig._cables["patch_tr1_to_coreint"] = {
-        "segments": [(p_int1, p_core_int_1)],
-        "trace_ids": _add_cable_segments(fig, [(p_int1, p_core_int_1)], width=2)
-    }
-    fig._cables["patch_tr2_to_coreint"] = {
-        "segments": [(p_int2, p_core_int_2)],
-        "trace_ids": _add_cable_segments(fig, [(p_int2, p_core_int_2)], width=2)
-    }
-    fig._cables["patch_tr3_to_coreint"] = {
-        "segments": [(p_int3, p_core_int_3)],
-        "trace_ids": _add_cable_segments(fig, [(p_int3, p_core_int_3)], width=2)
-    }
+
+# P1 ODF TRONCAL 1 (INT) → P1 ODF CORE–NVR (INT)
+_add_cable_curve(fig, p_int1, p_core_int_1, width=3, color="#FFD700")
+fig._cables["patch_tr1_to_coreint"] = {
+    "segments": [(p_int1, p_core_int_1)],
+    "trace_ids": []
+}
+
+# P1 ODF TRONCAL 2 (INT) → P2 ODF CORE–NVR (INT)
+_add_cable_curve(fig, p_int2, p_core_int_2, width=3, color="#FFD700")
+fig._cables["patch_tr2_to_coreint"] = {
+    "segments": [(p_int2, p_core_int_2)],
+    "trace_ids": []
+}
+
+# P1 ODF TRONCAL 3 (INT) → P3 ODF CORE–NVR (INT)
+_add_cable_curve(fig, p_int3, p_core_int_3, width=3, color="#FFD700")
+fig._cables["patch_tr3_to_coreint"] = {
+    "segments": [(p_int3, p_core_int_3)],
+    "trace_ids": []
+}
+
 
     # ======================================================
     # 3) Cable GRUESO entre:
