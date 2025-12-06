@@ -998,7 +998,7 @@ def create_rack_connection_diagram():
     odf_core_int = _add_odf(fig, rack_int_x0 + 0.02, odf_core_int_y, odf_h, "ODF CORE–NVR (INT)")
 
     # ODF CORE / NVR del rack CORE
-    odf_core = _add_odf(fig, rack_core_x0 + 0.02, odf1_y, odf_h, "ODF CORE–NVR")
+    odf_core = _add_odf(fig, rack_core_x0 + 0.02, odf_core_y, odf_h, "ODF CORE – NVR")
 
     # Guardar para cableado
     fig._odf_troncal       = [odf1_tr, odf2_tr, odf3_tr]
