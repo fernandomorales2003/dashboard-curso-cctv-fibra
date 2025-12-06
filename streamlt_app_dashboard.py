@@ -983,21 +983,22 @@ def create_rack_connection_diagram():
     odf3_y = rack_y0 + rack_h - (odf_h + odf_gap)*3
 
     # ODF TRONCALES
-    odf1_tr = _add_odf(fig, rack_troncal_x0+0.02, odf1_y, odf_h, "ODF TRONCAL 1")
-    odf2_tr = _add_odf(fig, rack_troncal_x0+0.02, odf2_y, odf_h, "ODF TRONCAL 2")
-    odf3_tr = _add_odf(fig, rack_troncal_x0+0.02, odf3_y, odf_h, "ODF TRONCAL 3")
+    odf1_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf1_y, odf_h, "ODF TRONCAL 1")
+    odf2_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf2_y, odf_h, "ODF TRONCAL 2")
+    odf3_tr = _add_odf(fig, rack_troncal_x0 + 0.02, odf3_y, odf_h, "ODF TRONCAL 3")
 
     # ODF RACK INTERCONEXIÓN
-    odf1_int = _add_odf(fig, rack_int_x0+0.02, odf1_y, odf_h, "ODF TRONCAL 1")
-    odf2_int = _add_odf(fig, rack_int_x0+0.02, odf2_y, odf_h, "ODF TRONCAL 2")
-    odf3_int = _add_odf(fig, rack_int_x0+0.02, odf3_y, odf_h, "ODF TRONCAL 3")
+
+    odf1_int = _add_odf(fig, rack_int_x0 + 0.02, odf1_y, odf_h, "ODF TRONCAL 1")
+    odf2_int = _add_odf(fig, rack_int_x0 + 0.02, odf2_y, odf_h, "ODF TRONCAL 2")
+    odf3_int = _add_odf(fig, rack_int_x0 + 0.02, odf3_y, odf_h, "ODF TRONCAL 3")
 
     # NUEVO ODF CORE–NVR (INT)
     odf_core_int_y = odf3_y - 0.14
-    odf_core_int = _add_odf(fig, rack_int_x0+0.02, odf_core_int_y, odf_h, "ODF CORE–NVR (INT)")
+    odf_core_int = _add_odf(fig, rack_int_x0 + 0.02, odf_core_int_y, odf_h, "ODF CORE–NVR (INT)")
 
     # ODF CORE / NVR del rack CORE
-    odf_core = _add_odf(fig, rack_core_x0+0.02, odf1_y, odf_h, "ODF CORE–NVR")
+    odf_core = _add_odf(fig, rack_core_x0 + 0.02, odf1_y, odf_h, "ODF CORE–NVR")
 
     # Guardar para cableado
     fig._odf_troncal       = [odf1_tr, odf2_tr, odf3_tr]
