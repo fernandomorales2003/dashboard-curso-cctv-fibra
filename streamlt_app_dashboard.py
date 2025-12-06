@@ -750,10 +750,11 @@ def _add_switch(fig, x0, y0, width=0.18, height=0.14):
     )
 
     fig.add_annotation(
-        x=(x0+x1)/2, y=y1 - 0.02,
-        text="SW8P-CORE-NVR — 8×SFP",
-        font=dict(size=10, color="white"),
-        showarrow=False
+    x=(x0 + x1) / 2,
+    y=y1 - 0.015,
+    text=f"{label} — 8×SFP",
+    font=dict(color="white", size=9),
+    showarrow=False
     )
 
     ports = []
