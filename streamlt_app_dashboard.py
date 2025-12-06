@@ -1233,11 +1233,11 @@ def _add_switch(fig, x0, y0, width=0.18, height=0.08, label="SW8P-CORE-NVR"):
     )
 
     fig.add_annotation(
-        x=(x0 + x1) / 2,
-        y=y1 - 0.015,
-        text=f"{label}<br>8 × SFP",
-        font=dict(color="white", size=9),
-        showarrow=False
+    x=(x0 + x1) / 2,
+    y=y1 - 0.015,
+    text=f"{label} — 8×SFP",
+    font=dict(color="white", size=9),
+    showarrow=False
     )
 
     # Puertos SFP
