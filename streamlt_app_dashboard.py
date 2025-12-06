@@ -801,8 +801,29 @@ def _add_cable_segments(fig, segments, width=3, color="#E3D873"):
         ))
         trace_ids.append(len(fig.data)-1)
     return trace_ids
+
+
+def rect_with_side_channel(a, b, channel_x):
+    """
+    Cable recto estilo rack:
+    - Sale del puerto (a)
+    - Va horizontal hasta el canal lateral (channel_x)
+    - Baja vertical por el canal hasta nivel del destino
+    - Va horizontal nuevamente hasta (b)
+    """
+    (x1, y1) = a
+    (x2, y2) = b
+
+    return [
+        ( (x1, y1), (channel_x, y1) ),      # horizontal → canal
+        ( (channel_x, y1), (channel_x, y2) ),  # bajada vertical por canal
+        ( (channel_x, y2), (x2, y2) )       # horizontal → destino
+    ]
+
+
 def _build_all_cables(fig):
     fig._cables = {}
+    channel_x = 0.36   # Ajuste perfecto para el costado izquierdo del rack intermedio
 
     # ======================================================
     # EXTRAER LISTAS DE ODF Y PUERTOS SFP
@@ -1394,6 +1415,26 @@ def _build_all_cables(fig):
     fig._cables["patch_tr3_to_coreint"] = {
     "segments": [(p_int3, p_core_int_3)],
     "trace_ids": []
+    }
+    # ======================================================
+# 2) Patchcords NUEVOS:
+#    INTERCONEXIÓN TRONCAL → ODF CORE–NVR (INT)
+#    AHORA BAJAN POR EL CANAL IZQUIERDO DEL RACK
+# ======================================================
+
+    fig._cables["patch_tr1_to_coreint"] = {
+    "segments": rect_with_side_channel(p_int1, p_core_int_1, channel_x),
+    "trace_ids": _add_cable_segments(fig, rect_with_side_channel(p_int1, p_core_int_1, channel_x), width=2)
+    }
+
+    fig._cables["patch_tr2_to_coreint"] = {
+    "segments": rect_with_side_channel(p_int2, p_core_int_2, channel_x),
+    "trace_ids": _add_cable_segments(fig, rect_with_side_channel(p_int2, p_core_int_2, channel_x), width=2)
+    }
+
+    fig._cables["patch_tr3_to_coreint"] = {
+    "segments": rect_with_side_channel(p_int3, p_core_int_3, channel_x),
+    "trace_ids": _add_cable_segments(fig, rect_with_side_channel(p_int3, p_core_int_3, channel_x), width=2)
     }
 
     # ======================================================
