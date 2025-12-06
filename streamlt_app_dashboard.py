@@ -884,6 +884,23 @@ def _build_all_cables(fig):
         "trace_ids": _add_cable_segments(fig, [(p_core_3, sfp3)], width=2)
     }
 
+# ============================================
+# PATCHCORDS TRONCAL → ODF CORE–NVR (INT)
+# ============================================
+fig._cables["patch_tr1_coreint"] = {
+    "segments": [(p_tr1, p_core_int_1)],
+    "trace_ids": _add_cable_segments(fig, [(p_tr1, p_core_int_1)], width=2)
+}
+fig._cables["patch_tr2_coreint"] = {
+    "segments": [(p_tr2, p_core_int_2)],
+    "trace_ids": _add_cable_segments(fig, [(p_tr2, p_core_int_2)], width=2)
+}
+fig._cables["patch_tr3_coreint"] = {
+    "segments": [(p_tr3, p_core_int_3)],
+    "trace_ids": _add_cable_segments(fig, [(p_tr3, p_core_int_3)], width=2)
+}
+
+
 def _build_animation(fig):
     frames = []
     keys = list(fig._cables.keys())
