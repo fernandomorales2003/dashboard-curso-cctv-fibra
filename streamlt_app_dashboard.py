@@ -21,7 +21,7 @@ st.set_page_config(
 
 st.title("DASHBOARD DISEÑO CCTV")
 st.warning(
-    "VERSIÓN FINAL 13 — Sin UNIFILAR — Mapa funcionando",
+    "VERSIÓN FINAL 14 — Sin UNIFILAR — Mapa funcionando",
     icon="⚙️"
 )
 st.caption("Visualización didáctica de topologías: Punto a Punto, Anillo y FTTN")
