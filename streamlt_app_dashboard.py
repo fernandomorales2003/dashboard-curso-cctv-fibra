@@ -685,6 +685,7 @@ def _add_odf(fig, x0, y0, h, label):
     x1 = x0 + w
     y1 = y0 + h
 
+    # Rectángulo del ODF
     fig.add_shape(
         type="rect",
         x0=x0, y0=y0, x1=x1, y1=y1,
@@ -692,30 +693,38 @@ def _add_odf(fig, x0, y0, h, label):
         fillcolor="#C8F7C5"
     )
 
+    # Texto (más abajo para no tocar el borde verde)
     fig.add_annotation(
         x=(x0+x1)/2,
-        y=y1 - 0.015,
+        y=y1 - 0.02,
         text=label,
         font=dict(size=10),
         showarrow=False
     )
 
-    # Puertos: 6 puertos (solo P1 se usa)
+    # Puertos: 12 puertos rectangulares dentro del ODF
     ports = []
-    px = x0 + 0.02
-    py = y0 + h*0.25
-    for i in range(6):
+    num_ports = 12
+    margin = 0.015
+    port_w = (w - 2*margin) / num_ports
+    port_h = 0.03
+
+    py0 = y0 + h*0.30
+    py1 = py0 + port_h
+    px = x0 + margin
+
+    for i in range(num_ports):
         fig.add_shape(
             type="rect",
-            x0=px, y0=py,
-            x1=px+0.018, y1=py+0.03,
+            x0=px, y0=py0, x1=px + port_w, y1=py1,
             line=dict(color="black", width=1),
             fillcolor="white"
         )
-        ports.append((px+0.009, py+0.015))
-        px += 0.026
+        ports.append((px + port_w/2, (py0+py1)/2))
+        px += port_w
 
     return ports
+
     
 def _straight_cable(a, b):
     """Devuelve 3 segmentos horizontales/verticales, siempre visibles."""
